@@ -137,7 +137,6 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     <button class="btn" id="next" aria-label="Semana siguiente">→</button>
     <button class="btn" id="today">Esta semana</button>
     <span class="status" id="status">Cargando…</span>
-    <span class="backup"><button class="btn" id="exportBtn" type="button">Descargar copia</button><label class="btn" for="importFile">Cargar copia</label><input type="file" id="importFile" accept="application/json,.json" hidden></span>
   </div>
 
   <div class="cols">
@@ -590,19 +589,6 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     if(SYNC) sync(); else setStatus('Guardado solo en este dispositivo');
   })();
 
-  // Backup: export / import a JSON file
-  $('exportBtn').addEventListener('click',()=>{
-    const blob=new Blob([JSON.stringify(DATA,null,1)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mi-semana-'+iso(new Date())+'.json'; a.click(); URL.revokeObjectURL(a.href);
-    setStatus('Copia descargada');
-  });
-  $('importFile').addEventListener('change',async e=>{
-    const f=e.target.files[0]; if(!f) return;
-    try{ const d=JSON.parse(await f.text()); if(!d||typeof d.movimientos!=='object') throw 0;
-      DATA=merge(DATA,d); persist(); setStatus('Copia cargada'); }
-    catch(err){ setStatus('Ese archivo no es una copia válida.',true); }
-    e.target.value='';
-  });
   window.addEventListener('storage',ev=>{ if(ev.key===KEY){ DATA=loadAll(); notify(); } });
 
   (async()=>{
