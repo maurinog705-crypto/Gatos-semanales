@@ -71,6 +71,11 @@ td .cat{display:block;color:var(--muted);font-size:.78rem}
 .carry{font-size:.85rem;color:var(--warn)}
 .backup{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
 .backup label{display:inline-block}
+.syncp{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:10px;max-width:560px}
+.syncp h2{margin:0;font-size:1rem}
+.syncp form{display:grid;gap:6px}
+.syncp label{font-size:.82rem;color:var(--muted);margin-top:4px}
+.syncp .row{display:flex;gap:8px;flex-wrap:wrap}
 .status{font-size:.85rem;color:var(--muted)}
 .status.err{color:var(--debt)}
 
@@ -124,8 +129,25 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     <button class="btn" id="next" aria-label="Semana siguiente">→</button>
     <button class="btn" id="today">Esta semana</button>
     <span class="status" id="status">Cargando…</span>
-    <span class="backup"><button class="btn" id="exportBtn" type="button">Descargar copia</button><label class="btn" for="importFile">Cargar copia</label><input type="file" id="importFile" accept="application/json,.json" hidden></span>
+    <span class="backup"><button class="btn" id="syncBtn" type="button">Sincronizar</button><button class="btn" id="exportBtn" type="button">Descargar copia</button><label class="btn" for="importFile">Cargar copia</label><input type="file" id="importFile" accept="application/json,.json" hidden></span>
   </div>
+
+  <section class="syncp" id="syncPanel" hidden>
+    <h2>Sincronizar celu y compu</h2>
+    <p class="hint">Tus gastos se guardan en un repositorio <b>privado</b> de tu GitHub. Cargá estos dos datos una vez en cada dispositivo.</p>
+    <form id="syncForm">
+      <label for="syncRepo">Repositorio privado</label>
+      <input id="syncRepo" autocomplete="off" spellcheck="false" placeholder="usuario/gastos-datos">
+      <label for="syncToken">Clave de GitHub (token)</label>
+      <input id="syncToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      <p class="hint" id="syncMsg" role="status"></p>
+      <div class="row">
+        <button class="btn primary" type="submit">Guardar y sincronizar</button>
+        <button class="btn" type="button" id="syncCancel">Cerrar</button>
+        <button class="btn" type="button" id="syncOff" hidden>Dejar de sincronizar acá</button>
+      </div>
+    </form>
+  </section>
 
   <div class="cols">
     <section class="panel" aria-labelledby="h-personal">
@@ -502,25 +524,102 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   render();
 
 
-  // ---------- Local store (this device's browser) ----------
-  const KEY='mi-semana-de-plata-v1';
-  function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
-  let DATA=Object.assign({movimientos:{},config:{}},loadAll());
+  // ---------- Store: this device's browser + optional sync to a private GitHub repo ----------
+  // Every record carries _t (last change time); deletions stay as {_del:true,_t} so devices merge cleanly.
+  const KEY='mi-semana-de-plata-v1', SKEY='mi-semana-sync-v1', FILE='datos.json';
+  const blank=()=>({movimientos:{},config:{}});
+  function loadAll(){ try{ return Object.assign(blank(),JSON.parse(localStorage.getItem(KEY))||{}); }catch(e){ return blank(); } }
+  let DATA=loadAll();
   const subs=[];
-  function persist(){ try{ localStorage.setItem(KEY,JSON.stringify(DATA)); }catch(e){ setStatus('No se pudo guardar en este navegador.',true); } subs.forEach(f=>f()); }
-  const snap=(id,data)=>({id,exists:data!==undefined,data:()=>data});
+  const notify=()=>subs.forEach(f=>f());
+  function saveLocal(){ try{ localStorage.setItem(KEY,JSON.stringify(DATA)); }catch(e){ setStatus('No se pudo guardar en este navegador.',true); } }
+  function persist(){ saveLocal(); notify(); schedulePush(); }
+  const now=()=>Date.now();
+  const snap=(id,data)=>({id,exists:!!data&&!data._del,data:()=>data});
   const localDb={
     collection(name){ DATA[name]=DATA[name]||{}; return {
-      add:async d=>{ const id=Date.now().toString(36)+Math.random().toString(36).slice(2,7); DATA[name][id]=d; persist(); },
-      doc:id=>({ update:async d=>{ Object.assign(DATA[name][id],d); persist(); }, delete:async()=>{ delete DATA[name][id]; persist(); } }),
-      onSnapshot(f){ const run=()=>f({docs:Object.entries(DATA[name]||{}).map(([id,d])=>snap(id,d))}); subs.push(run); run(); return ()=>{}; }
+      add:async d=>{ const id=now().toString(36)+Math.random().toString(36).slice(2,7); DATA[name][id]=Object.assign({},d,{_t:now()}); persist(); },
+      doc:id=>({ update:async d=>{ Object.assign(DATA[name][id],d,{_t:now()}); persist(); },
+                 delete:async()=>{ DATA[name][id]={_del:true,_t:now()}; persist(); } }),
+      onSnapshot(f){ const run=()=>f({docs:Object.entries(DATA[name]||{}).filter(([,d])=>!d._del).map(([id,d])=>snap(id,d))}); subs.push(run); run(); return ()=>{}; }
     }; },
     doc(path){ const [c,id]=path.split('/'); DATA[c]=DATA[c]||{}; return {
-      set:async d=>{ DATA[c][id]=d; persist(); },
+      set:async d=>{ DATA[c][id]=Object.assign({},d,{_t:now()}); persist(); },
       onSnapshot(f){ const run=()=>f(snap(id,DATA[c][id])); subs.push(run); run(); return ()=>{}; }
     }; }
   };
-  // Backup: export / import a JSON file to move data between phone and computer
+  function merge(a,b){ // newest change wins per record
+    const out=blank();
+    for(const c of new Set([...Object.keys(a),...Object.keys(b)])){
+      out[c]={}; const A=a[c]||{}, B=b[c]||{};
+      for(const id of new Set([...Object.keys(A),...Object.keys(B)])){
+        const x=A[id], y=B[id]; out[c][id] = !x ? y : !y ? x : ((y._t||0)>(x._t||0) ? y : x);
+      }
+    }
+    return out;
+  }
+  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+
+  // GitHub sync
+  let SYNC=null; try{ SYNC=JSON.parse(localStorage.getItem(SKEY)); }catch(e){}
+  const b64e=str=>{ const by=new TextEncoder().encode(str); let s=''; for(let i=0;i<by.length;i+=0x8000) s+=String.fromCharCode.apply(null,by.subarray(i,i+0x8000)); return btoa(s); };
+  const b64d=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\n/g,'')),c=>c.charCodeAt(0)));
+  async function gh(method,body){
+    const r=await fetch('https://api.github.com/repos/'+SYNC.repo+'/contents/'+FILE,{method,cache:'no-store',
+      headers:{'Authorization':'Bearer '+SYNC.token,'Accept':'application/vnd.github+json'},body:body?JSON.stringify(body):undefined});
+    return r;
+  }
+  async function pull(){ // -> {data, sha} ; data null if the file doesn't exist yet
+    const r=await gh('GET');
+    if(r.status===404) return {data:null,sha:null};
+    if(r.status===401||r.status===403) throw new Error('auth');
+    if(!r.ok) throw new Error('net');
+    const j=await r.json(); return {data:JSON.parse(b64d(j.content)),sha:j.sha};
+  }
+  let syncing=false, again=false, pushTimer=null;
+  function schedulePush(){ if(!SYNC) return; clearTimeout(pushTimer); pushTimer=setTimeout(sync,1200); }
+  async function sync(){
+    if(!SYNC) return;
+    if(syncing){ again=true; return; }
+    syncing=true; setStatus('Sincronizando…');
+    try{
+      for(let attempt=0;attempt<3;attempt++){
+        const {data,sha}=await pull();
+        const merged=merge(DATA,data||blank());
+        if(!same(merged,DATA)){ DATA=merged; saveLocal(); notify(); }
+        if(data && same(merged,data)) break;
+        const r=await gh('PUT',{message:'Actualizar gastos',content:b64e(JSON.stringify(merged)),sha:sha||undefined});
+        if(r.ok) break;
+        if(r.status===401||r.status===403) throw new Error('auth');
+        if(r.status!==409 && r.status!==422) throw new Error('net');
+      }
+      setStatus('Sincronizado '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}));
+    }catch(e){
+      setStatus(e.message==='auth' ? 'La clave de GitHub no funciona. Revisala en "Sincronizar".' : 'Sin conexión: guardado en este dispositivo, se sincroniza después.',true);
+    }finally{ syncing=false; if(again){ again=false; schedulePush(); } }
+  }
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') sync(); });
+  setInterval(()=>{ if(document.visibilityState==='visible') sync(); },60000);
+  window.addEventListener('online',sync);
+
+  // Sync settings panel
+  const panel=$('syncPanel');
+  function fillPanel(){ $('syncRepo').value=SYNC?.repo||'maurinog705-crypto/gastos-datos'; $('syncToken').value=SYNC?.token||''; $('syncOff').hidden=!SYNC; $('syncBtn').textContent=SYNC?'Sincronizado ✓':'Sincronizar'; }
+  $('syncBtn').addEventListener('click',()=>{ fillPanel(); panel.hidden=!panel.hidden; });
+  $('syncCancel').addEventListener('click',()=>{ panel.hidden=true; });
+  $('syncForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const repo=$('syncRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,''), token=$('syncToken').value.trim();
+    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!token){ $('syncMsg').textContent='Completá el repositorio (usuario/nombre) y la clave.'; return; }
+    const prev=SYNC; SYNC={repo,token}; $('syncMsg').textContent='Probando…';
+    try{ await pull(); }catch(err){ SYNC=prev; $('syncMsg').textContent= err.message==='auth' ? 'GitHub rechazó la clave. Revisá que tenga permiso de lectura y escritura sobre ese repositorio.' : 'No pude llegar al repositorio. Revisá el nombre.'; return; }
+    try{ localStorage.setItem(SKEY,JSON.stringify(SYNC)); }catch(e){}
+    $('syncMsg').textContent=''; panel.hidden=true; fillPanel(); sync();
+  });
+  $('syncOff').addEventListener('click',()=>{ SYNC=null; try{ localStorage.removeItem(SKEY); }catch(e){} fillPanel(); panel.hidden=true; setStatus('Guardado solo en este dispositivo'); });
+  fillPanel();
+
+  // Backup: export / import a JSON file
   $('exportBtn').addEventListener('click',()=>{
     const blob=new Blob([JSON.stringify(DATA,null,1)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mi-semana-'+iso(new Date())+'.json'; a.click(); URL.revokeObjectURL(a.href);
@@ -529,19 +628,20 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   $('importFile').addEventListener('change',async e=>{
     const f=e.target.files[0]; if(!f) return;
     try{ const d=JSON.parse(await f.text()); if(!d||typeof d.movimientos!=='object') throw 0;
-      DATA=Object.assign({movimientos:{},config:{}},d); persist(); setStatus('Copia cargada'); }
+      DATA=merge(DATA,d); persist(); setStatus('Copia cargada'); }
     catch(err){ setStatus('Ese archivo no es una copia válida.',true); }
     e.target.value='';
   });
-  window.addEventListener('storage',ev=>{ if(ev.key===KEY){ DATA=Object.assign({movimientos:{},config:{}},loadAll()); subs.forEach(f=>f()); } });
+  window.addEventListener('storage',ev=>{ if(ev.key===KEY){ DATA=loadAll(); notify(); } });
 
   (async()=>{
     db = localDb;
-    setStatus('Guardado en este dispositivo');
+    setStatus(SYNC?'Sincronizando…':'Guardado solo en este dispositivo');
     db.collection('movimientos').onSnapshot(s=>{ movs=s.docs.map(d=>Object.assign({id:d.id},d.data())); render(); },
       ()=>{});
     db.doc('config/conceptos').onSnapshot(s=>{ const d=s.exists?s.data():{}; extra={personal:d.personal||[],macro:d.macro||[]}; fillSelect('personal'); fillSelect('macro'); },
       ()=>{});
+    sync();
   })();
 })();
 </script>
