@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1f6b52">
+<meta name="theme-color" content="#1d2420">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mi plata">
 <title>Mi semana de plata</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -25,6 +31,8 @@
 html{-webkit-text-size-adjust:100%}
 body{margin:0;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.45}
 .wrap{max-width:1040px;margin:0 auto;padding:24px 16px 48px;display:grid;gap:20px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:44px;height:44px;flex:none}
 h1{font-size:1.5rem;margin:0;text-wrap:balance;font-weight:600}
 .sub{color:var(--muted);margin:2px 0 0}
 .weeknav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -119,7 +127,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
 <div class="wrap">
   <header>
-    <h1>Mi semana de plata</h1>
+    <h1 class="brand"><img src="img/logo.png" alt="" width="44" height="44">Mi semana de plata</h1>
     <p class="sub">Semanas de miércoles a martes. Papá pasa $100.000 para uso personal; lo necesario lo pago con Macro y se lo cobro el miércoles siguiente.</p>
   </header>
 
