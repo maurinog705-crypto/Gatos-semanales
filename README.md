@@ -8,8 +8,8 @@ Sitio: https://gatos-semanales.vercel.app
 
 1. Importar este repositorio en Vercel y desplegar.
 2. En el proyecto de Vercel: Storage → crear una base Upstash Redis y conectarla al proyecto. Después, Redeploy.
-3. Abrir la página, elegir una contraseña. En el otro dispositivo, poner la misma.
+3. Abrir la página: sincroniza sola entre dispositivos.
 
-`api/datos.js` guarda los datos en Redis; la primera contraseña que se usa queda fija.
+`api/datos.js` guarda los datos en Redis.
 
 En GitHub Pages la página funciona igual, pero guarda solo en el navegador (usar "Descargar copia" / "Cargar copia").
