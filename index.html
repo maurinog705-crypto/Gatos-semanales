@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f6b52">
+<title>Mi semana de plata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one week at a time, two ledgers side by side (stacked on phones), each with its own running balance */
+:root{
+  --bg:#f5f6f3; --surface:#ffffff; --fg:#1d2420; --muted:#66706a; --line:#dde1dc;
+  --accent:#1f6b52; --accent-soft:#e3efe9; --debt:#a3472f; --debt-soft:#f6e6e0; --warn:#9a6a12;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#151a17; --surface:#1d2420; --fg:#e6ebe7; --muted:#9aa49e; --line:#2f3833;
+  --accent:#6cc4a1; --accent-soft:#1f3329; --debt:#e58d72; --debt-soft:#3a251f; --warn:#e0b25a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151a17; --surface:#1d2420; --fg:#e6ebe7; --muted:#9aa49e; --line:#2f3833;
+  --accent:#6cc4a1; --accent-soft:#1f3329; --debt:#e58d72; --debt-soft:#3a251f; --warn:#e0b25a; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.45}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 48px;display:grid;gap:20px}
+h1{font-size:1.5rem;margin:0;text-wrap:balance;font-weight:600}
+.sub{color:var(--muted);margin:2px 0 0}
+.weeknav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.weeknav .label{font-weight:600;font-size:1.05rem;min-width:13ch}
+button,select,input{font:inherit;color:inherit}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:14px;min-width:0;align-content:start}
+.panel h2{margin:0;font-size:1rem;font-weight:600}
+.panel .hint{margin:0;color:var(--muted);font-size:.85rem}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.big{font-family:var(--mono);font-size:2rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.pos{color:var(--accent)} .neg{color:var(--debt)}
+.meter{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.meter.over i{background:var(--debt)}
+@media (prefers-reduced-motion:reduce){.meter i{transition:none}}
+.pill{display:inline-block;font-size:.78rem;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:500}
+.pill.debt{background:var(--debt-soft);color:var(--debt)}
+form.add{display:grid;grid-template-columns:9.5rem 1fr 7rem;gap:8px}
+form.add .row2{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+form.add .row2 input{flex:1;min-width:8rem;width:auto}
+[hidden]{display:none!important}
+form.add .newc{padding:8px;border:1px dashed var(--line);border-radius:8px}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;width:100%}
+input[type=number]{font-family:var(--mono);text-align:right}
+@media (max-width:480px){input,select{font-size:16px}table th:nth-child(4),table td:nth-child(4){display:none}td,th{padding-inline:4px}form.add{grid-template-columns:1fr 1fr}form.add .concept{grid-column:1/-1;order:-1}}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;padding:6px 6px;border-bottom:1px solid var(--line)}
+td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.d{white-space:nowrap;color:var(--muted);font-family:var(--mono);font-size:.82rem}
+td .cat{display:block;color:var(--muted);font-size:.78rem}
+.del{background:none;border:0;color:var(--muted);cursor:pointer;padding:0 4px;font-size:.85rem}
+.del.armed{color:var(--debt);font-weight:600}
+.empty{color:var(--muted);font-size:.9rem;padding:14px 0;text-align:center}
+.settle{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border-radius:10px;background:var(--debt-soft)}
+.settle.done{background:var(--accent-soft)}
+.settle p{margin:0}
+.carry{font-size:.85rem;color:var(--warn)}
+.backup{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.backup label{display:inline-block}
+.status{font-size:.85rem;color:var(--muted)}
+.status.err{color:var(--debt)}
+
+/* Resumen */
+:root{--c-personal:#2a6fc0;--c-macro:#c8661a;--grid:#e8ebe7}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--c-personal:#4f8fdb;--c-macro:#d0782c;--grid:#262e2a}}
+:root[data-theme="dark"]{--c-personal:#4f8fdb;--c-macro:#d0782c;--grid:#262e2a}
+.stats{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:18px;min-width:0}
+.stats-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.stats-head h2{margin:0;font-size:1.1rem;font-weight:600}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tabs button{background:none;border:0;padding:6px 14px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--fg);color:var(--surface)}
+.period{color:var(--muted);margin:-8px 0 0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.tile .v{font-family:var(--mono);font-size:1.2rem;font-variant-numeric:tabular-nums}
+.tile .s{color:var(--muted);font-size:.8rem;overflow-wrap:anywhere}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px}
+.chart{min-width:0;display:grid;gap:8px;align-content:start}
+.chart h3{margin:0;font-size:.95rem;font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.hbar{display:grid;grid-template-columns:minmax(6rem,9rem) 1fr auto;gap:4px 10px;align-items:center;font-size:.86rem}
+.hbar .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbar .track{height:14px;position:relative}
+.hbar .track b{position:absolute;left:0;top:0;bottom:0;border-radius:0 4px 4px 0;min-width:2px}
+.hbar .amt{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.hbar .amt small{color:var(--muted);margin-left:6px}
+svg.trend{width:100%;height:auto;display:block;overflow:visible}
+svg.trend text{fill:var(--muted);font-family:var(--mono);font-size:10px}
+.tip{position:fixed;pointer-events:none;background:var(--fg);color:var(--surface);padding:6px 9px;border-radius:6px;font-size:.8rem;line-height:1.35;z-index:10;white-space:nowrap}
+.cat-name{color:var(--fg)}
+tr.paid td{color:var(--muted)}
+tr.paid td.amt{text-decoration:line-through}
+td.chk{text-align:center}
+td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Mi semana de plata</h1>
+    <p class="sub">Semanas de miércoles a martes. Papá pasa $100.000 para uso personal; lo necesario lo pago con Macro y se lo cobro el miércoles siguiente.</p>
+  </header>
+
+  <div class="weeknav">
+    <button class="btn" id="prev" aria-label="Semana anterior">←</button>
+    <span class="label" id="weekLabel">…</span>
+    <button class="btn" id="next" aria-label="Semana siguiente">→</button>
+    <button class="btn" id="today">Esta semana</button>
+    <span class="status" id="status">Cargando…</span>
+    <span class="backup"><button class="btn" id="exportBtn" type="button">Descargar copia</button><label class="btn" for="importFile">Cargar copia</label><input type="file" id="importFile" accept="application/json,.json" hidden></span>
+  </div>
+
+  <div class="cols">
+    <section class="panel" aria-labelledby="h-personal">
+      <div>
+        <h2 id="h-personal">Uso personal</h2>
+        <p class="hint">Nafta, comidas, salidas y gastos del día. Arranca en $100.000.</p>
+      </div>
+      <div>
+        <div class="eyebrow">Te queda</div>
+        <div class="big" id="pSaldo">$100.000</div>
+        <div class="meter" id="pMeter"><i style="width:0%"></i></div>
+        <p class="hint" id="pResumen">Gastaste $0 de $100.000</p>
+      </div>
+      <form class="add" id="fPersonal" data-cuenta="personal">
+        <input type="date" id="pFecha" aria-label="Fecha" required>
+        <select class="concept" id="pCat" aria-label="Concepto"></select>
+        <input type="number" id="pMonto" placeholder="Monto" min="1" step="1" inputmode="numeric" aria-label="Monto" required>
+        <div class="row2 newc" id="pNew" hidden>
+          <input id="pNewName" placeholder="Nombre del concepto nuevo" aria-label="Nombre del concepto nuevo" maxlength="40">
+          <button class="btn" type="button" data-save="personal">Crear</button>
+          <button class="btn" type="button" data-cancel="personal">Cancelar</button>
+        </div>
+        <div class="row2">
+          <input id="pLugar" placeholder="Qué compraste (opcional)" aria-label="Qué compraste" maxlength="60">
+          <button class="btn primary" type="submit">Agregar gasto</button>
+        </div>
+      </form>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Monto</th><th class="n">Queda</th><th></th></tr></thead>
+        <tbody id="pRows"></tbody>
+      </table></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-macro">
+      <div>
+        <h2 id="h-macro">Cuenta Macro <span class="pill debt">a cobrarle a papá</span></h2>
+        <p class="hint">Súper, ferretería, salud, psicóloga y gastos necesarios. Arranca en $0.</p>
+      </div>
+      <div>
+        <div class="eyebrow">Falta cobrar esta semana</div>
+        <div class="big neg" id="mSaldo">$0</div>
+        <p class="hint" id="mResumen"></p>
+        <p class="carry" id="mCarry" hidden></p>
+      </div>
+      <form class="add" id="fMacro" data-cuenta="macro">
+        <input type="date" id="mFecha" aria-label="Fecha" required>
+        <select class="concept" id="mCat" aria-label="Concepto"></select>
+        <input type="number" id="mMonto" placeholder="Monto" min="1" step="1" inputmode="numeric" aria-label="Monto" required>
+        <div class="row2 newc" id="mNew" hidden>
+          <input id="mNewName" placeholder="Nombre del concepto nuevo" aria-label="Nombre del concepto nuevo" maxlength="40">
+          <button class="btn" type="button" data-save="macro">Crear</button>
+          <button class="btn" type="button" data-cancel="macro">Cancelar</button>
+        </div>
+        <div class="row2">
+          <input id="mLugar" placeholder="Qué compraste (opcional)" aria-label="Qué compraste" maxlength="60">
+          <button class="btn primary" type="submit">Agregar gasto</button>
+        </div>
+      </form>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Monto</th><th class="n">Falta</th><th>Cobrado</th><th></th></tr></thead>
+        <tbody id="mRows"></tbody>
+      </table></div>
+      <div class="settle" id="settle">
+        <p id="settleText">Nada para cobrar esta semana.</p>
+        <button class="btn" id="settleBtn" hidden>Marcar como cobrado</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="stats" aria-labelledby="h-stats">
+    <div class="stats-head">
+      <h2 id="h-stats">Resumen</h2>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tSemana" aria-selected="true" data-scope="semana">Semana</button>
+        <button role="tab" id="tMes" aria-selected="false" data-scope="mes">Mes</button>
+        <button role="tab" id="tAnio" aria-selected="false" data-scope="anio">Año</button>
+      </div>
+    </div>
+    <p class="period" id="sPeriod"></p>
+    <div class="tiles" id="sTiles"></div>
+    <div class="charts">
+      <div class="chart">
+        <h3>En qué gastaste</h3>
+        <div class="legend"><span><i style="background:var(--c-personal)"></i>Uso personal</span><span><i style="background:var(--c-macro)"></i>Macro (a cobrar)</span></div>
+        <div class="hbar" id="sCats"></div>
+      </div>
+      <div class="chart">
+        <h3 id="sTrendTitle">Día por día</h3>
+        <div class="legend"><span><i style="background:var(--c-personal)"></i>Uso personal</span><span><i style="background:var(--c-macro)"></i>Macro (a cobrar)</span></div>
+        <div id="sTrend"></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function(){
+  const PAPA = 100000;
+  const $ = id => document.getElementById(id);
+  const fmt = n => (n<0?'-':'') + '$' + Math.round(Math.abs(n)).toLocaleString('es-AR');
+  const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const parse = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+  const weekStart = d => { const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-((x.getDay()+4)%7)); return x; };
+  const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+  const short = d => d.toLocaleDateString('es-AR',{day:'numeric',month:'short'}).replace('.','');
+
+  let cur = weekStart(new Date());
+  let movs = [];          // {id, cuenta, fecha, concepto, categoria, monto}
+  let db = null;
+
+  function setStatus(t, err){ const s=$('status'); s.textContent=t; s.classList.toggle('err',!!err); }
+
+  function defaultDate(){
+    const today = new Date(), ws = iso(cur), we = iso(addDays(cur,6)), t = iso(today);
+    return (t>=ws && t<=we) ? t : ws;
+  }
+
+  function rowsFor(cuenta, wsIso, weIso){
+    return movs.filter(m=>m.cuenta===cuenta && m.fecha>=wsIso && m.fecha<=weIso)
+               .sort((a,b)=> a.fecha===b.fecha ? (a.creado||0)-(b.creado||0) : a.fecha<b.fecha?-1:1);
+  }
+
+  function renderTable(tbody, rows, start, cuenta){
+    tbody.textContent='';
+    const macro = cuenta==='macro';
+    if(!rows.length){
+      const tr=document.createElement('tr'), td=document.createElement('td');
+      td.colSpan=macro?6:5; td.className='empty';
+      td.textContent = db ? 'Todavía no hay gastos esta semana. Cargá el primero arriba.' : 'Los gastos que cargues van a aparecer acá.';
+      tr.appendChild(td); tbody.appendChild(tr); return;
+    }
+    let bal=start;
+    for(const m of rows){
+      const paid = macro && !!m.cobrado;
+      if(!paid) bal -= m.monto;
+      const tr=document.createElement('tr'); if(paid) tr.className='paid';
+      const d=document.createElement('td'); d.className='d'; d.textContent=short(parse(m.fecha));
+      const c=document.createElement('td'); c.textContent=m.concepto;
+      if(m.lugar){ const cat=document.createElement("span"); cat.className="cat"; cat.textContent=m.lugar; c.appendChild(cat); }
+      const a=document.createElement('td'); a.className='n amt'; a.textContent='-'+fmt(m.monto);
+      const b=document.createElement('td'); b.className='n '+(bal<0?'neg':'pos'); b.textContent=fmt(bal);
+      const cells=[d,c,a,b];
+      if(macro){
+        const k=document.createElement('td'); k.className='chk';
+        const lab=document.createElement('label'); const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=paid; cb.disabled=!db;
+        cb.setAttribute('aria-label','Cobrado: '+m.concepto+' '+fmt(m.monto));
+        cb.addEventListener('change',()=>setCobrado([m],cb.checked));
+        lab.append(cb); k.appendChild(lab); cells.push(k);
+      }
+      const x=document.createElement('td'); const del=document.createElement('button');
+      del.className='del'; del.type='button'; del.textContent='×'; del.setAttribute('aria-label','Borrar '+m.concepto);
+      del.addEventListener('click',()=>remove(m.id));
+      x.appendChild(del); cells.push(x);
+      tr.append(...cells); tbody.appendChild(tr);
+    }
+  }
+
+  async function setCobrado(list, val){
+    if(!db) return;
+    try{
+      for(const m of list){ if(!!m.cobrado!==val) await db.collection('movimientos').doc(m.id).update({cobrado:val}); }
+      setStatus(val?'Marcado como cobrado':'Marcado como pendiente');
+    }catch(err){ setStatus('No se pudo guardar. Probá de nuevo.',true); }
+  }
+
+  function render(){
+    const ws=iso(cur), weD=addDays(cur,6), we=iso(weD);
+    $('weekLabel').textContent = 'Mié '+short(cur)+' al mar '+short(weD);
+    for(const id of ['pFecha','mFecha']){ const el=$(id); el.min=ws; el.max=we; if(!el.value||el.value<ws||el.value>we) el.value=defaultDate(); }
+
+    // Personal
+    const p=rowsFor('personal',ws,we), pg=p.reduce((s,m)=>s+m.monto,0), pq=PAPA-pg;
+    $('pSaldo').textContent=fmt(pq); $('pSaldo').className='big '+(pq<0?'neg':'pos');
+    const meter=$('pMeter'); meter.classList.toggle('over',pq<0);
+    meter.firstElementChild.style.width=Math.min(100,pg/PAPA*100)+'%';
+    $('pResumen').textContent = pq<0
+      ? 'Gastaste '+fmt(pg)+': te pasaste '+fmt(-pq)+' de los $100.000.'
+      : 'Gastaste '+fmt(pg)+' de $100.000.';
+    renderTable($('pRows'),p,PAPA,'personal');
+
+    // Macro: the balance only counts what papá still owes
+    const m=rowsFor('macro',ws,we), total=m.reduce((s,x)=>s+x.monto,0);
+    const pend=m.filter(x=>!x.cobrado), mg=pend.reduce((s,x)=>s+x.monto,0), cob=total-mg;
+    $('mSaldo').textContent=fmt(-mg); $('mSaldo').className='big '+(mg>0?'neg':'');
+    $('mResumen').textContent = total ? 'Gastaste '+fmt(total)+' · cobrado '+fmt(cob)+' · falta '+fmt(mg) : '';
+    renderTable($('mRows'),m,0,'macro');
+
+    const nextWed = addDays(cur,7);
+    const st=$('settle'), btn=$('settleBtn');
+    st.classList.toggle('done', total>0 && mg===0);
+    if(!total){ $('settleText').textContent='Nada para cobrar esta semana.'; btn.hidden=true; }
+    else if(mg===0){ $('settleText').textContent='Ya le cobraste todo a papá ('+fmt(total)+').'; btn.hidden=false; btn.textContent='Desmarcar todo'; btn.onclick=()=>setCobrado(m,false); }
+    else { $('settleText').textContent='Falta cobrarle a papá '+fmt(mg)+(cob?' (ya cobraste '+fmt(cob)+')':'')+'. Se lo cobrás el miércoles '+short(nextWed)+'.'; btn.hidden=false; btn.textContent='Marcar todo como cobrado'; btn.onclick=()=>setCobrado(pend,true); }
+    btn.disabled=!db;
+
+    // Unpaid Macro from earlier weeks
+    const owed={};
+    for(const x of movs){ if(x.cuenta!=='macro' || x.cobrado) continue; const w=iso(weekStart(parse(x.fecha))); if(w<ws) owed[w]=(owed[w]||0)+x.monto; }
+    const weeks=Object.keys(owed), tot=weeks.reduce((s,w)=>s+owed[w],0);
+    const carry=$('mCarry');
+    if(tot>0){ carry.hidden=false; carry.textContent='Además quedan '+fmt(tot)+' sin cobrar de '+(weeks.length===1?'la semana del '+short(parse(weeks[0])):weeks.length+' semanas anteriores')+'.'; }
+    else carry.hidden=true;
+    if(typeof renderStats==='function') renderStats();
+  }
+
+  async function add(e){
+    e.preventDefault();
+    const f=e.currentTarget, c=f.dataset.cuenta, k=c==='personal'?'p':'m';
+    const monto=Math.round(Number($(k+'Monto').value));
+    const concepto=$(k+'Cat').value;
+    if(!db){ setStatus('No se puede guardar: tu navegador no permite guardar.',true); return; }
+    if(!concepto||concepto===NEW){ setStatus('Elegí un concepto.',true); return; }
+    if(!(monto>0)) return;
+    const doc={cuenta:c,fecha:$(k+'Fecha').value,concepto,lugar:$(k+'Lugar').value.trim(),monto,creado:Date.now()};
+    try{ await db.collection('movimientos').add(doc); $(k+'Lugar').value=''; $(k+'Monto').value=''; $(k+'Monto').focus(); setStatus('Guardado'); }
+    catch(err){ setStatus('No se guardó ('+(err&&err.code||'error')+'). Probá de nuevo.',true); }
+  }
+
+  async function remove(id){
+    try{ await db.collection('movimientos').doc(id).delete(); setStatus('Borrado'); }
+    catch(err){ setStatus('No se pudo borrar. Probá de nuevo.',true); }
+  }
+
+  // Conceptos: the fixed ones plus the ones created on the page (db doc config/conceptos)
+  const NEW='__nuevo__';
+  const BASE={personal:['Nafta','Comida','Salidas','Regalos','Otros'],
+              macro:['Súper','Almacén','Ferretería','Salud','Farmacia','Psicóloga','Kinesiólogo','Otros necesarios']};
+  let extra={personal:[],macro:[]};
+  function fillSelect(c){
+    const sel=$((c==='personal'?'p':'m')+'Cat'), keep=sel.value;
+    sel.textContent='';
+    for(const n of BASE[c].concat(extra[c]||[])){ const o=document.createElement('option'); o.textContent=n; sel.appendChild(o); }
+    const o=document.createElement('option'); o.value=NEW; o.textContent='+ Crear concepto…'; sel.appendChild(o);
+    if(keep && keep!==NEW && [...sel.options].some(x=>x.value===keep)) sel.value=keep;
+  }
+  for(const c of ['personal','macro']){
+    const k=c==='personal'?'p':'m', sel=$(k+'Cat');
+    sel.addEventListener('change',()=>{ if(sel.value===NEW){ $(k+'New').hidden=false; $(k+'NewName').focus(); } else $(k+'New').hidden=true; });
+    fillSelect(c);
+  }
+  async function createConcept(c){
+    const k=c==='personal'?'p':'m', name=$(k+'NewName').value.trim();
+    if(!name) return;
+    const all=BASE[c].concat(extra[c]||[]);
+    if(!all.some(n=>n.toLowerCase()===name.toLowerCase())){
+      if(!db){ setStatus('No se puede guardar: tu navegador no permite guardar.',true); return; }
+      const next={personal:(extra.personal||[]).slice(),macro:(extra.macro||[]).slice()};
+      next[c].push(name);
+      try{ await db.doc('config/conceptos').set(next); extra=next; setStatus('Concepto creado'); }
+      catch(err){ setStatus('No se pudo crear el concepto. Probá de nuevo.',true); return; }
+    }
+    fillSelect(c);
+    $(k+'Cat').value=all.find(n=>n.toLowerCase()===name.toLowerCase())||name;
+    $(k+'NewName').value=''; $(k+'New').hidden=true;
+  }
+  document.querySelectorAll('[data-save]').forEach(b=>b.addEventListener('click',()=>createConcept(b.dataset.save)));
+  document.querySelectorAll('[data-cancel]').forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.cancel==='personal'?'p':'m'; $(k+'New').hidden=true; $(k+'NewName').value=''; $(k+'Cat').selectedIndex=0;
+  }));
+  for(const k of ['p','m']) $(k+'NewName').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); createConcept(k==='p'?'personal':'macro'); } });
+
+
+  // ---------- Resumen: semana / mes / año ----------
+  let scope='semana';
+  const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const MESES_L=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{
+    scope=b.dataset.scope; document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b))); renderStats();
+  }));
+  const tip=$('tip');
+  function showTip(e,html){ tip.innerHTML=html; tip.hidden=false; const r=tip.getBoundingClientRect();
+    let x=e.clientX+12, y=e.clientY-r.height-10; if(x+r.width>innerWidth-8) x=e.clientX-r.width-12; if(y<8) y=e.clientY+14; tip.style.left=x+'px'; tip.style.top=y+'px'; }
+  function hideTip(){ tip.hidden=true; }
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function periodRange(){
+    if(scope==='semana'){ const e=addDays(cur,6); return {from:cur,to:e,label:'Semana del mié '+short(cur)+' al mar '+short(e)}; }
+    if(scope==='mes'){ const f=new Date(cur.getFullYear(),cur.getMonth(),1), t=new Date(cur.getFullYear(),cur.getMonth()+1,0); return {from:f,to:t,label:MESES_L[f.getMonth()]+' '+f.getFullYear()}; }
+    const f=new Date(cur.getFullYear(),0,1), t=new Date(cur.getFullYear(),11,31); return {from:f,to:t,label:'Año '+f.getFullYear()};
+  }
+  function wednesdays(from,to){ let n=0; const d=new Date(from); while(d<=to){ if(d.getDay()===3) n++; d.setDate(d.getDate()+1);} return n; }
+
+  function renderStats(){
+    const {from,to,label}=periodRange(), fI=iso(from), tI=iso(to), today=new Date(), tdI=iso(today);
+    const rows=movs.filter(m=>m.fecha>=fI && m.fecha<=tI);
+    const enCurso = tdI>=fI && tdI<=tI;
+    $('sPeriod').textContent = label + (enCurso ? ' (en curso)' : (tdI<fI ? ' (todavía no empezó)' : ' (cerrado)'));
+    const pers=rows.filter(m=>m.cuenta==='personal'), mac=rows.filter(m=>m.cuenta==='macro');
+    const sum=a=>a.reduce((s,m)=>s+m.monto,0);
+    const P=sum(pers), M=sum(mac), T=P+M;
+    // Count days and Wednesdays only from when tracking started (first expense ever loaded)
+    const first = movs.reduce((a,m)=>!a||m.fecha<a?m.fecha:a,null);
+    const start = scope==='semana' ? from : (first && weekStart(parse(first))>from ? weekStart(parse(first)) : from);
+    const lastDay = enCurso ? new Date(today.getFullYear(),today.getMonth(),today.getDate()) : to;
+    const days = (tdI<fI || !rows.length) ? 0 : Math.max(1,Math.round((lastDay-start)/864e5)+1);
+    const recibido = scope==='semana' ? PAPA : PAPA*wednesdays(start, lastDay);
+    const big = rows.reduce((b,m)=>!b||m.monto>b.monto?m:b,null);
+    const byCat={}; for(const m of rows){ const k=m.cuenta+'|'+m.concepto; byCat[k]=(byCat[k]||0)+m.monto; }
+    const cats=Object.entries(byCat).map(([k,v])=>{const [c,n]=k.split('|');return {c,n,v};}).sort((a,b)=>b.v-a.v);
+    const tiles=[
+      ['Uso personal', fmt(P), scope==='semana' ? (P<=PAPA?'Te sobran '+fmt(PAPA-P):'Te pasaste '+fmt(P-PAPA)) : 'De '+fmt(recibido)+' recibidos ('+(recibido/PAPA)+' miércoles'+(scope==='anio'&&start>from?' desde que empezaste':'')+')'],
+      ['Macro (para papá)', fmt(M), M ? 'Falta cobrar '+fmt(sum(mac.filter(m=>!m.cobrado))) : 'sin gastos'],
+      ['Total gastado', fmt(T), rows.length+' gasto'+(rows.length===1?'':'s')],
+      ['Promedio por día', days?fmt(T/days):'$0', days?'en '+days+' día'+(days===1?'':'s'):'sin días todavía'],
+      ['Gasto más grande', big?fmt(big.monto):'—', big?(big.concepto+(big.lugar?' · '+big.lugar:'')):'sin gastos'],
+      ['Concepto principal', cats[0]?cats[0].n:'—', cats[0]?fmt(cats[0].v)+' ('+Math.round(cats[0].v/T*100)+'%)':'sin gastos'],
+    ];
+    const tl=$('sTiles'); tl.textContent='';
+    for(const [k,v,sub] of tiles){ const d=document.createElement('div'); d.className='tile';
+      const a=document.createElement('span'); a.className='eyebrow'; a.textContent=k;
+      const b=document.createElement('span'); b.className='v'; b.textContent=v;
+      const c=document.createElement('span'); c.className='s'; c.textContent=sub; d.append(a,b,c); tl.appendChild(d); }
+
+    // Bars by concept
+    const hb=$('sCats'); hb.textContent='';
+    if(!cats.length){ const e=document.createElement('p'); e.className='empty'; e.style.gridColumn='1/-1'; e.textContent='Cuando cargues gastos en este período, acá ves en qué se fue la plata.'; hb.appendChild(e); }
+    const max=cats[0]?cats[0].v:1;
+    for(const x of cats){
+      const n=document.createElement('span'); n.className='name'; n.textContent=x.n; n.title=x.n;
+      const t=document.createElement('span'); t.className='track'; const b=document.createElement('b');
+      b.style.width=(x.v/max*100)+'%'; b.style.background=x.c==='personal'?'var(--c-personal)':'var(--c-macro)'; t.appendChild(b);
+      const a=document.createElement('span'); a.className='amt'; a.textContent=fmt(x.v); const sm=document.createElement('small'); sm.textContent=Math.round(x.v/T*100)+'%'; a.appendChild(sm);
+      const tipH='<b>'+esc(x.n)+'</b><br>'+(x.c==='personal'?'Uso personal':'Macro')+' · '+fmt(x.v);
+      for(const el of [n,t,a]){ el.addEventListener('mousemove',e=>showTip(e,tipH)); el.addEventListener('mouseleave',hideTip); }
+      hb.append(n,t,a);
+    }
+
+    // Trend: days (week), weeks (month), months (year)
+    let buckets=[], title;
+    if(scope==='semana'){ title='Día por día'; for(let i=0;i<7;i++){ const d=addDays(from,i); buckets.push({lab:['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()]+' '+d.getDate(),full:short(d),from:iso(d),to:iso(d)}); } }
+    else if(scope==='mes'){ title='Semana por semana (mié a mar)'; let w=weekStart(from); while(w<=to){ const e=addDays(w,6); buckets.push({lab:short(w),full:'Semana del '+short(w)+' al '+short(e),from:iso(w<from?from:w),to:iso(e>to?to:e)}); w=addDays(w,7);} }
+    else { title='Mes por mes'; for(let i=0;i<12;i++){ const f=new Date(from.getFullYear(),i,1), t=new Date(from.getFullYear(),i+1,0); buckets.push({lab:MESES[i],full:MESES_L[i],from:iso(f),to:iso(t)}); } }
+    $('sTrendTitle').textContent=title;
+    for(const b of buckets){ b.p=sum(pers.filter(m=>m.fecha>=b.from&&m.fecha<=b.to)); b.m=sum(mac.filter(m=>m.fecha>=b.from&&m.fecha<=b.to)); }
+    drawTrend(buckets);
+  }
+
+  function niceMax(v){ if(v<=0) return 100000; const p=Math.pow(10,Math.floor(Math.log10(v))); for(const m of [1,2,4,5,8,10]) if(m*p>=v) return m*p; return 10*p; }
+  function short$(v){ return v>=1e6?'$'+(v/1e6).toLocaleString('es-AR',{maximumFractionDigits:1})+'M':v>=1e3?'$'+Math.round(v/1e3)+'k':'$'+v; }
+  function drawTrend(B){
+    const W=480,H=220,L=44,R=8,Tp=10,Bt=26, iw=W-L-R, ih=H-Tp-Bt;
+    const mx=niceMax(Math.max(...B.map(b=>b.p+b.m),0));
+    const ns='http://www.w3.org/2000/svg', svg=document.createElementNS(ns,'svg');
+    svg.setAttribute('viewBox','0 0 '+W+' '+H); svg.setAttribute('class','trend'); svg.setAttribute('role','img');
+    svg.setAttribute('aria-label','Gastos por período: '+B.map(b=>b.full+' '+fmt(b.p+b.m)).join(', '));
+    const el=(n,a)=>{const e=document.createElementNS(ns,n); for(const k in a) e.setAttribute(k,a[k]); return e;};
+    for(let i=0;i<=4;i++){ const v=mx*i/4, y=Tp+ih-ih*i/4;
+      svg.appendChild(el('line',{x1:L,x2:W-R,y1:y,y2:y,stroke:'var(--grid)','stroke-width':1}));
+      const t=el('text',{x:L-6,y:y+3,'text-anchor':'end'}); t.textContent=short$(v); svg.appendChild(t); }
+    const slot=iw/B.length, bw=Math.min(36,slot*0.6);
+    B.forEach((b,i)=>{
+      const x=L+slot*i+(slot-bw)/2, hp=ih*b.p/mx, hm=ih*b.m/mx, base=Tp+ih;
+      const gap = (hp>0&&hm>0)?2:0;
+      if(hp>0) svg.appendChild(el('rect',{x,y:base-hp,width:bw,height:Math.max(1,hp),fill:'var(--c-personal)',rx: hm>0?0:3}));
+      if(hm>0) svg.appendChild(el('rect',{x,y:base-hp-hm,width:bw,height:Math.max(1,hm-gap),fill:'var(--c-macro)',rx:3}));
+      const t=el('text',{x:L+slot*i+slot/2,y:H-8,'text-anchor':'middle'}); t.textContent=b.lab; svg.appendChild(t);
+      const hit=el('rect',{x:L+slot*i,y:Tp,width:slot,height:ih,fill:'transparent'});
+      const tipH='<b>'+esc(b.full)+'</b><br>Uso personal: '+fmt(b.p)+'<br>Macro: '+fmt(b.m)+'<br>Total: '+fmt(b.p+b.m);
+      hit.addEventListener('mousemove',e=>showTip(e,tipH)); hit.addEventListener('mouseleave',hideTip);
+      svg.appendChild(hit);
+    });
+    if(B.length>8) svg.querySelectorAll('text[text-anchor="middle"]').forEach((t,i)=>{ if(i%2) t.setAttribute('opacity','0'); });
+    const box=$('sTrend'); box.textContent=''; box.appendChild(svg);
+  }
+
+  $('fPersonal').addEventListener('submit',add);
+  $('fMacro').addEventListener('submit',add);
+  $('prev').addEventListener('click',()=>{cur=addDays(cur,-7);render();});
+  $('next').addEventListener('click',()=>{cur=addDays(cur,7);render();});
+  $('today').addEventListener('click',()=>{cur=weekStart(new Date());render();});
+
+
+  render();
+
+
+  // ---------- Local store (this device's browser) ----------
+  const KEY='mi-semana-de-plata-v1';
+  function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ return {}; } }
+  let DATA=Object.assign({movimientos:{},config:{}},loadAll());
+  const subs=[];
+  function persist(){ try{ localStorage.setItem(KEY,JSON.stringify(DATA)); }catch(e){ setStatus('No se pudo guardar en este navegador.',true); } subs.forEach(f=>f()); }
+  const snap=(id,data)=>({id,exists:data!==undefined,data:()=>data});
+  const localDb={
+    collection(name){ DATA[name]=DATA[name]||{}; return {
+      add:async d=>{ const id=Date.now().toString(36)+Math.random().toString(36).slice(2,7); DATA[name][id]=d; persist(); },
+      doc:id=>({ update:async d=>{ Object.assign(DATA[name][id],d); persist(); }, delete:async()=>{ delete DATA[name][id]; persist(); } }),
+      onSnapshot(f){ const run=()=>f({docs:Object.entries(DATA[name]||{}).map(([id,d])=>snap(id,d))}); subs.push(run); run(); return ()=>{}; }
+    }; },
+    doc(path){ const [c,id]=path.split('/'); DATA[c]=DATA[c]||{}; return {
+      set:async d=>{ DATA[c][id]=d; persist(); },
+      onSnapshot(f){ const run=()=>f(snap(id,DATA[c][id])); subs.push(run); run(); return ()=>{}; }
+    }; }
+  };
+  // Backup: export / import a JSON file to move data between phone and computer
+  $('exportBtn').addEventListener('click',()=>{
+    const blob=new Blob([JSON.stringify(DATA,null,1)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mi-semana-'+iso(new Date())+'.json'; a.click(); URL.revokeObjectURL(a.href);
+    setStatus('Copia descargada');
+  });
+  $('importFile').addEventListener('change',async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    try{ const d=JSON.parse(await f.text()); if(!d||typeof d.movimientos!=='object') throw 0;
+      DATA=Object.assign({movimientos:{},config:{}},d); persist(); setStatus('Copia cargada'); }
+    catch(err){ setStatus('Ese archivo no es una copia válida.',true); }
+    e.target.value='';
+  });
+  window.addEventListener('storage',ev=>{ if(ev.key===KEY){ DATA=Object.assign({movimientos:{},config:{}},loadAll()); subs.forEach(f=>f()); } });
+
+  (async()=>{
+    db = localDb;
+    setStatus('Guardado en este dispositivo');
+    db.collection('movimientos').onSnapshot(s=>{ movs=s.docs.map(d=>Object.assign({id:d.id},d.data())); render(); },
+      ()=>{});
+    db.doc('config/conceptos').onSnapshot(s=>{ const d=s.exists?s.data():{}; extra={personal:d.personal||[],macro:d.macro||[]}; fillSelect('personal'); fillSelect('macro'); },
+      ()=>{});
+  })();
+})();
+</script>
+
+</body>
+</html>
