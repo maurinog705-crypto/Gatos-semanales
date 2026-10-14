@@ -61,7 +61,7 @@ form.add .row2 input{flex:1;min-width:8rem;width:auto}
 [hidden]{display:none!important}
 form.add .newc{padding:8px;border:1px dashed var(--line);border-radius:8px}
 input,select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;width:100%}
-input[type=number]{font-family:var(--mono);text-align:right}
+input.money{font-family:var(--mono);text-align:right}
 @media (max-width:480px){input,select{font-size:16px}table th:nth-child(4),table td:nth-child(4){display:none}td,th{padding-inline:4px}form.add{grid-template-columns:1fr 1fr}form.add .concept{grid-column:1/-1;order:-1}}
 .tablewrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:.9rem}
@@ -152,7 +152,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
       <form class="add" id="fPersonal" data-cuenta="personal">
         <input type="date" id="pFecha" aria-label="Fecha" required>
         <select class="concept" id="pCat" aria-label="Concepto"></select>
-        <input type="number" id="pMonto" placeholder="Monto" min="1" step="1" inputmode="numeric" aria-label="Monto" required>
+        <input type="text" class="money" id="pMonto" placeholder="Monto" inputmode="decimal" autocomplete="off" aria-label="Monto" required>
         <div class="row2 newc" id="pNew" hidden>
           <input id="pNewName" placeholder="Nombre del concepto nuevo" aria-label="Nombre del concepto nuevo" maxlength="40">
           <button class="btn" type="button" data-save="personal">Crear</button>
@@ -182,7 +182,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
       <form class="add" id="fMacro" data-cuenta="macro">
         <input type="date" id="mFecha" aria-label="Fecha" required>
         <select class="concept" id="mCat" aria-label="Concepto"></select>
-        <input type="number" id="mMonto" placeholder="Monto" min="1" step="1" inputmode="numeric" aria-label="Monto" required>
+        <input type="text" class="money" id="mMonto" placeholder="Monto" inputmode="decimal" autocomplete="off" aria-label="Monto" required>
         <div class="row2 newc" id="mNew" hidden>
           <input id="mNewName" placeholder="Nombre del concepto nuevo" aria-label="Nombre del concepto nuevo" maxlength="40">
           <button class="btn" type="button" data-save="macro">Crear</button>
@@ -235,7 +235,14 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 (function(){
   const PAPA = 100000;
   const $ = id => document.getElementById(id);
-  const fmt = n => (n<0?'-':'') + '$' + Math.round(Math.abs(n)).toLocaleString('es-AR');
+  const fmt = n => { const a=Math.abs(Math.round(n*100)/100), d=Number.isInteger(a)?0:2; return (n<0?'-':'') + '$' + a.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}); };
+  // Accepts Argentine style: "1.234,50", "1234,5", "1234.50" or "1234"
+  const parseMonto = t => {
+    t=String(t).trim().replace(/[$\s]/g,'');
+    if(t.includes(',')) t=t.replace(/\./g,'').replace(',','.');
+    else if(/^\d{1,3}(\.\d{3})+$/.test(t)) t=t.replace(/\./g,'');
+    const n=Number(t); return isFinite(n) ? Math.round(n*100)/100 : NaN;
+  };
   const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const parse = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
   const weekStart = d => { const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-((x.getDay()+4)%7)); return x; };
@@ -344,7 +351,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   async function add(e){
     e.preventDefault();
     const f=e.currentTarget, c=f.dataset.cuenta, k=c==='personal'?'p':'m';
-    const monto=Math.round(Number($(k+'Monto').value));
+    const monto=parseMonto($(k+'Monto').value);
     const concepto=$(k+'Cat').value;
     if(!db){ setStatus('No se puede guardar: tu navegador no permite guardar.',true); return; }
     if(!concepto||concepto===NEW){ setStatus('Elegí un concepto.',true); return; }
