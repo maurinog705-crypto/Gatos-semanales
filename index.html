@@ -620,10 +620,27 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
         if(r.ok) break;
         if(r.status!==409) throw new Error('net');
       }
+      applySeeds();
       setStatus('Sincronizado '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}));
     }catch(e){
       setStatus('Sin conexión: guardado en este dispositivo, se sincroniza después.',true);
     }finally{ syncing=false; if(again){ again=false; schedulePush(); } }
+  }
+  // One-off entries loaded by Claude from the bank statements; skipped if already there (same account, date and amount)
+  const SEEDS=[
+    ['seed-2610-1',{cuenta:'sueldo',fecha:'2026-10-13',concepto:'Salidas',lugar:'Cena ITT Italy',monto:79700},[79700]],
+    ['seed-2610-2',{cuenta:'sueldo',fecha:'2026-10-19',concepto:'Comida',lugar:'PedidosYa (resto)',monto:1040.63},[1040.63,22254]],
+    ['seed-2610-3',{cuenta:'personal',fecha:'2026-10-19',concepto:'Comida',lugar:'PedidosYa',monto:21213.37},[21213.37,22254]],
+    ['seed-2610-4',{cuenta:'macro',fecha:'2026-10-19',concepto:'Nafta',lugar:'Valparaíso',monto:30000,cobrado:false},[30000]]
+  ];
+  function applySeeds(){
+    const M=DATA.movimientos=DATA.movimientos||{}; let added=false;
+    for(const [id,d,amts] of SEEDS){
+      if(M[id]) continue;
+      const dup=Object.values(M).some(x=>!x._del&&x.cuenta===d.cuenta&&x.fecha===d.fecha&&amts.some(a=>Math.abs(x.monto-a)<1));
+      M[id]=dup?{_del:true,_t:now()}:Object.assign({},d,{creado:now(),_t:now()}); added=true;
+    }
+    if(added) persist();
   }
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') sync(); });
   setInterval(()=>{ if(document.visibilityState==='visible') sync(); },30000);
