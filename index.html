@@ -88,9 +88,9 @@ td .cat{display:block;color:var(--muted);font-size:.78rem}
 .status.err{color:var(--debt)}
 
 /* Resumen */
-:root{--c-personal:#2a6fc0;--c-macro:#c8661a;--grid:#e8ebe7}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--c-personal:#4f8fdb;--c-macro:#d0782c;--grid:#262e2a}}
-:root[data-theme="dark"]{--c-personal:#4f8fdb;--c-macro:#d0782c;--grid:#262e2a}
+:root{--c-personal:#2a6fc0;--c-macro:#c8661a;--c-sueldo:#a8418f;--grid:#e8ebe7}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--c-personal:#4f8fdb;--c-macro:#d0782c;--c-sueldo:#c86bb4;--grid:#262e2a}}
+:root[data-theme="dark"]{--c-personal:#4f8fdb;--c-macro:#d0782c;--c-sueldo:#c86bb4;--grid:#262e2a}
 .stats{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:18px;min-width:0}
 .stats-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .stats-head h2{margin:0;font-size:1.1rem;font-weight:600}
@@ -98,7 +98,7 @@ td .cat{display:block;color:var(--muted);font-size:.78rem}
 .tabs button{background:none;border:0;padding:6px 14px;cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--fg);color:var(--surface)}
 .period{color:var(--muted);margin:-8px 0 0}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:10px}
 .tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px;min-width:0}
 .tile .v{font-family:var(--mono);font-size:1.2rem;font-variant-numeric:tabular-nums}
 .tile .s{color:var(--muted);font-size:.8rem;overflow-wrap:anywhere}
@@ -202,6 +202,34 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
         <button class="btn" id="settleBtn" hidden>Marcar como cobrado</button>
       </div>
     </section>
+
+    <section class="panel" aria-labelledby="h-sueldo">
+      <div>
+        <h2 id="h-sueldo">Gastos del sueldo <span class="pill">Macro</span></h2>
+      </div>
+      <div>
+        <div class="eyebrow">Gastado esta semana</div>
+        <div class="big" id="sSaldo">$0</div>
+      </div>
+      <form class="add" id="fSueldo" data-cuenta="sueldo">
+        <input type="date" id="sFecha" aria-label="Fecha" required>
+        <select class="concept" id="sCat" aria-label="Concepto"></select>
+        <input type="text" class="money" id="sMonto" placeholder="Monto" inputmode="decimal" autocomplete="off" aria-label="Monto" required>
+        <div class="row2 newc" id="sNew" hidden>
+          <input id="sNewName" placeholder="Nombre del concepto nuevo" aria-label="Nombre del concepto nuevo" maxlength="40">
+          <button class="btn" type="button" data-save="sueldo">Crear</button>
+          <button class="btn" type="button" data-cancel="sueldo">Cancelar</button>
+        </div>
+        <div class="row2">
+          <input id="sLugar" placeholder="Qué compraste (opcional)" aria-label="Qué compraste" maxlength="60">
+          <button class="btn primary" type="submit">Agregar gasto</button>
+        </div>
+      </form>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Monto</th><th class="n">Total</th><th></th></tr></thead>
+        <tbody id="sRows"></tbody>
+      </table></div>
+    </section>
   </div>
 
   <section class="stats" aria-labelledby="h-stats">
@@ -218,12 +246,12 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     <div class="charts">
       <div class="chart">
         <h3>En qué gastaste</h3>
-        <div class="legend"><span><i style="background:var(--c-personal)"></i>Uso personal</span><span><i style="background:var(--c-macro)"></i>Macro (a cobrar)</span></div>
+        <div class="legend"><span><i style="background:var(--c-personal)"></i>Uso personal</span><span><i style="background:var(--c-macro)"></i>Macro (a cobrar)</span><span><i style="background:var(--c-sueldo)"></i>Sueldo</span></div>
         <div class="hbar" id="sCats"></div>
       </div>
       <div class="chart">
         <h3 id="sTrendTitle">Día por día</h3>
-        <div class="legend"><span><i style="background:var(--c-personal)"></i>Uso personal</span><span><i style="background:var(--c-macro)"></i>Macro (a cobrar)</span></div>
+        <div class="legend"><span><i style="background:var(--c-personal)"></i>Uso personal</span><span><i style="background:var(--c-macro)"></i>Macro (a cobrar)</span><span><i style="background:var(--c-sueldo)"></i>Sueldo</span></div>
         <div id="sTrend"></div>
       </div>
     </div>
@@ -237,6 +265,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   const $ = id => document.getElementById(id);
   const fmt = n => { const a=Math.abs(Math.round(n*100)/100), d=Number.isInteger(a)?0:2; return (n<0?'-':'') + '$' + a.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}); };
   // Accepts Argentine style: "1.234,50", "1234,5", "1234.50" or "1234"
+  const KEY_OF={personal:'p',macro:'m',sueldo:'s'};
   const parseMonto = t => {
     t=String(t).trim().replace(/[$\s]/g,'');
     if(t.includes(',')) t=t.replace(/\./g,'').replace(',','.');
@@ -283,7 +312,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
       const c=document.createElement('td'); c.textContent=m.concepto;
       if(m.lugar){ const cat=document.createElement("span"); cat.className="cat"; cat.textContent=m.lugar; c.appendChild(cat); }
       const a=document.createElement('td'); a.className='n amt'; a.textContent='-'+fmt(m.monto);
-      const b=document.createElement('td'); b.className='n '+(bal<0?'neg':'pos'); b.textContent=fmt(bal);
+      const b=document.createElement('td'); if(cuenta==='sueldo'){ b.className='n'; b.textContent=fmt(-bal); } else { b.className='n '+(bal<0?'neg':'pos'); b.textContent=fmt(bal); }
       const cells=[d,c,a,b];
       if(macro){
         const k=document.createElement('td'); k.className='chk';
@@ -311,7 +340,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   function render(){
     const ws=iso(cur), weD=addDays(cur,6), we=iso(weD);
     $('weekLabel').textContent = 'Mié '+short(cur)+' al mar '+short(weD);
-    for(const id of ['pFecha','mFecha']){ const el=$(id); el.min=ws; el.max=we; if(!el.value||el.value<ws||el.value>we) el.value=defaultDate(); }
+    for(const id of ['pFecha','mFecha','sFecha']){ const el=$(id); el.min=ws; el.max=we; if(!el.value||el.value<ws||el.value>we) el.value=defaultDate(); }
 
     // Personal
     const p=rowsFor('personal',ws,we), pg=p.reduce((s,m)=>s+m.monto,0), pq=PAPA-pg;
@@ -329,6 +358,11 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     $('mSaldo').textContent=fmt(-mg); $('mSaldo').className='big '+(mg>0?'neg':'');
     $('mResumen').textContent = total ? 'Gastaste '+fmt(total)+' · cobrado '+fmt(cob)+' · falta '+fmt(mg) : '';
     renderTable($('mRows'),m,0,'macro');
+
+    // Sueldo: spent from Macro, not charged to papá
+    const sr=rowsFor('sueldo',ws,we), sg=sr.reduce((t,x)=>t+x.monto,0);
+    $('sSaldo').textContent=fmt(sg);
+    renderTable($('sRows'),sr,0,'sueldo');
 
     const nextWed = addDays(cur,7);
     const st=$('settle'), btn=$('settleBtn');
@@ -350,7 +384,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
   async function add(e){
     e.preventDefault();
-    const f=e.currentTarget, c=f.dataset.cuenta, k=c==='personal'?'p':'m';
+    const f=e.currentTarget, c=f.dataset.cuenta, k=KEY_OF[c];
     const monto=parseMonto($(k+'Monto').value);
     const concepto=$(k+'Cat').value;
     if(!db){ setStatus('No se puede guardar: tu navegador no permite guardar.',true); return; }
@@ -369,27 +403,28 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   // Conceptos: the fixed ones plus the ones created on the page (db doc config/conceptos)
   const NEW='__nuevo__';
   const BASE={personal:['Nafta','Comida','Salidas','Regalos','Otros'],
+              sueldo:['Ropa','Deporte','Suplementos','Camping','Tecnología','Otros'],
               macro:['Súper','Almacén','Ferretería','Salud','Farmacia','Psicóloga','Kinesiólogo','Otros necesarios']};
-  let extra={personal:[],macro:[]};
+  let extra={personal:[],macro:[],sueldo:[]};
   function fillSelect(c){
-    const sel=$((c==='personal'?'p':'m')+'Cat'), keep=sel.value;
+    const sel=$(KEY_OF[c]+'Cat'), keep=sel.value;
     sel.textContent='';
     for(const n of BASE[c].concat(extra[c]||[])){ const o=document.createElement('option'); o.textContent=n; sel.appendChild(o); }
     const o=document.createElement('option'); o.value=NEW; o.textContent='+ Crear concepto…'; sel.appendChild(o);
     if(keep && keep!==NEW && [...sel.options].some(x=>x.value===keep)) sel.value=keep;
   }
-  for(const c of ['personal','macro']){
-    const k=c==='personal'?'p':'m', sel=$(k+'Cat');
+  for(const c of ['personal','macro','sueldo']){
+    const k=KEY_OF[c], sel=$(k+'Cat');
     sel.addEventListener('change',()=>{ if(sel.value===NEW){ $(k+'New').hidden=false; $(k+'NewName').focus(); } else $(k+'New').hidden=true; });
     fillSelect(c);
   }
   async function createConcept(c){
-    const k=c==='personal'?'p':'m', name=$(k+'NewName').value.trim();
+    const k=KEY_OF[c], name=$(k+'NewName').value.trim();
     if(!name) return;
     const all=BASE[c].concat(extra[c]||[]);
     if(!all.some(n=>n.toLowerCase()===name.toLowerCase())){
       if(!db){ setStatus('No se puede guardar: tu navegador no permite guardar.',true); return; }
-      const next={personal:(extra.personal||[]).slice(),macro:(extra.macro||[]).slice()};
+      const next={personal:(extra.personal||[]).slice(),macro:(extra.macro||[]).slice(),sueldo:(extra.sueldo||[]).slice()};
       next[c].push(name);
       try{ await db.doc('config/conceptos').set(next); extra=next; setStatus('Concepto creado'); }
       catch(err){ setStatus('No se pudo crear el concepto. Probá de nuevo.',true); return; }
@@ -400,9 +435,9 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   }
   document.querySelectorAll('[data-save]').forEach(b=>b.addEventListener('click',()=>createConcept(b.dataset.save)));
   document.querySelectorAll('[data-cancel]').forEach(b=>b.addEventListener('click',()=>{
-    const k=b.dataset.cancel==='personal'?'p':'m'; $(k+'New').hidden=true; $(k+'NewName').value=''; $(k+'Cat').selectedIndex=0;
+    const k=KEY_OF[b.dataset.cancel]; $(k+'New').hidden=true; $(k+'NewName').value=''; $(k+'Cat').selectedIndex=0;
   }));
-  for(const k of ['p','m']) $(k+'NewName').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); createConcept(k==='p'?'personal':'macro'); } });
+  for(const c of ['personal','macro','sueldo']) $(KEY_OF[c]+'NewName').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); createConcept(c); } });
 
 
   // ---------- Resumen: semana / mes / año ----------
@@ -430,9 +465,9 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     const rows=movs.filter(m=>m.fecha>=fI && m.fecha<=tI);
     const enCurso = tdI>=fI && tdI<=tI;
     $('sPeriod').textContent = label + (enCurso ? ' (en curso)' : (tdI<fI ? ' (todavía no empezó)' : ' (cerrado)'));
-    const pers=rows.filter(m=>m.cuenta==='personal'), mac=rows.filter(m=>m.cuenta==='macro');
+    const pers=rows.filter(m=>m.cuenta==='personal'), mac=rows.filter(m=>m.cuenta==='macro'), sue=rows.filter(m=>m.cuenta==='sueldo');
     const sum=a=>a.reduce((s,m)=>s+m.monto,0);
-    const P=sum(pers), M=sum(mac), T=P+M;
+    const P=sum(pers), M=sum(mac), S=sum(sue), T=P+M+S;
     // Count days and Wednesdays only from when tracking started (first expense ever loaded)
     const first = movs.reduce((a,m)=>!a||m.fecha<a?m.fecha:a,null);
     const start = scope==='semana' ? from : (first && weekStart(parse(first))>from ? weekStart(parse(first)) : from);
@@ -445,6 +480,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     const tiles=[
       ['Uso personal', fmt(P), scope==='semana' ? (P<=PAPA?'Te sobran '+fmt(PAPA-P):'Te pasaste '+fmt(P-PAPA)) : 'De '+fmt(recibido)+' recibidos ('+(recibido/PAPA)+' miércoles'+(scope==='anio'&&start>from?' desde que empezaste':'')+')'],
       ['Macro (para papá)', fmt(M), M ? 'Falta cobrar '+fmt(sum(mac.filter(m=>!m.cobrado))) : 'sin gastos'],
+      ['Sueldo', fmt(S), sue.length+' gasto'+(sue.length===1?'':'s')],
       ['Total gastado', fmt(T), rows.length+' gasto'+(rows.length===1?'':'s')],
       ['Promedio por día', days?fmt(T/days):'$0', days?'en '+days+' día'+(days===1?'':'s'):'sin días todavía'],
       ['Gasto más grande', big?fmt(big.monto):'—', big?(big.concepto+(big.lugar?' · '+big.lugar:'')):'sin gastos'],
@@ -463,9 +499,9 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     for(const x of cats){
       const n=document.createElement('span'); n.className='name'; n.textContent=x.n; n.title=x.n;
       const t=document.createElement('span'); t.className='track'; const b=document.createElement('b');
-      b.style.width=(x.v/max*100)+'%'; b.style.background=x.c==='personal'?'var(--c-personal)':'var(--c-macro)'; t.appendChild(b);
+      b.style.width=(x.v/max*100)+'%'; b.style.background='var(--c-'+x.c+')'; t.appendChild(b);
       const a=document.createElement('span'); a.className='amt'; a.textContent=fmt(x.v); const sm=document.createElement('small'); sm.textContent=Math.round(x.v/T*100)+'%'; a.appendChild(sm);
-      const tipH='<b>'+esc(x.n)+'</b><br>'+(x.c==='personal'?'Uso personal':'Macro')+' · '+fmt(x.v);
+      const tipH='<b>'+esc(x.n)+'</b><br>'+({personal:'Uso personal',macro:'Macro',sueldo:'Sueldo'}[x.c])+' · '+fmt(x.v);
       for(const el of [n,t,a]){ el.addEventListener('mousemove',e=>showTip(e,tipH)); el.addEventListener('mouseleave',hideTip); }
       hb.append(n,t,a);
     }
@@ -476,7 +512,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     else if(scope==='mes'){ title='Semana por semana (mié a mar)'; let w=weekStart(from); while(w<=to){ const e=addDays(w,6); buckets.push({lab:short(w),full:'Semana del '+short(w)+' al '+short(e),from:iso(w<from?from:w),to:iso(e>to?to:e)}); w=addDays(w,7);} }
     else { title='Mes por mes'; for(let i=0;i<12;i++){ const f=new Date(from.getFullYear(),i,1), t=new Date(from.getFullYear(),i+1,0); buckets.push({lab:MESES[i],full:MESES_L[i],from:iso(f),to:iso(t)}); } }
     $('sTrendTitle').textContent=title;
-    for(const b of buckets){ b.p=sum(pers.filter(m=>m.fecha>=b.from&&m.fecha<=b.to)); b.m=sum(mac.filter(m=>m.fecha>=b.from&&m.fecha<=b.to)); }
+    for(const b of buckets){ b.p=sum(pers.filter(m=>m.fecha>=b.from&&m.fecha<=b.to)); b.m=sum(mac.filter(m=>m.fecha>=b.from&&m.fecha<=b.to)); b.s=sum(sue.filter(m=>m.fecha>=b.from&&m.fecha<=b.to)); }
     drawTrend(buckets);
   }
 
@@ -484,23 +520,26 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   function short$(v){ return v>=1e6?'$'+(v/1e6).toLocaleString('es-AR',{maximumFractionDigits:1})+'M':v>=1e3?'$'+Math.round(v/1e3)+'k':'$'+v; }
   function drawTrend(B){
     const W=480,H=220,L=44,R=8,Tp=10,Bt=26, iw=W-L-R, ih=H-Tp-Bt;
-    const mx=niceMax(Math.max(...B.map(b=>b.p+b.m),0));
+    const tot=b=>b.p+b.m+b.s;
+    const mx=niceMax(Math.max(...B.map(tot),0));
     const ns='http://www.w3.org/2000/svg', svg=document.createElementNS(ns,'svg');
     svg.setAttribute('viewBox','0 0 '+W+' '+H); svg.setAttribute('class','trend'); svg.setAttribute('role','img');
-    svg.setAttribute('aria-label','Gastos por período: '+B.map(b=>b.full+' '+fmt(b.p+b.m)).join(', '));
+    svg.setAttribute('aria-label','Gastos por período: '+B.map(b=>b.full+' '+fmt(tot(b))).join(', '));
     const el=(n,a)=>{const e=document.createElementNS(ns,n); for(const k in a) e.setAttribute(k,a[k]); return e;};
     for(let i=0;i<=4;i++){ const v=mx*i/4, y=Tp+ih-ih*i/4;
       svg.appendChild(el('line',{x1:L,x2:W-R,y1:y,y2:y,stroke:'var(--grid)','stroke-width':1}));
       const t=el('text',{x:L-6,y:y+3,'text-anchor':'end'}); t.textContent=short$(v); svg.appendChild(t); }
     const slot=iw/B.length, bw=Math.min(36,slot*0.6);
     B.forEach((b,i)=>{
-      const x=L+slot*i+(slot-bw)/2, hp=ih*b.p/mx, hm=ih*b.m/mx, base=Tp+ih;
-      const gap = (hp>0&&hm>0)?2:0;
-      if(hp>0) svg.appendChild(el('rect',{x,y:base-hp,width:bw,height:Math.max(1,hp),fill:'var(--c-personal)',rx: hm>0?0:3}));
-      if(hm>0) svg.appendChild(el('rect',{x,y:base-hp-hm,width:bw,height:Math.max(1,hm-gap),fill:'var(--c-macro)',rx:3}));
+      const x=L+slot*i+(slot-bw)/2, base=Tp+ih;
+      // Stack bottom-up with a 2px gap between segments; only the top segment gets rounded
+      const segs=[['p','personal'],['m','macro'],['s','sueldo']].filter(([k])=>b[k]>0);
+      let y=base;
+      segs.forEach(([k,c],j)=>{ const h=ih*b[k]/mx, top=j===segs.length-1, g=j>0?2:0;
+        svg.appendChild(el('rect',{x,y:y-h,width:bw,height:Math.max(1,h-g),fill:'var(--c-'+c+')',rx:top?3:0})); y-=h; });
       const t=el('text',{x:L+slot*i+slot/2,y:H-8,'text-anchor':'middle'}); t.textContent=b.lab; svg.appendChild(t);
       const hit=el('rect',{x:L+slot*i,y:Tp,width:slot,height:ih,fill:'transparent'});
-      const tipH='<b>'+esc(b.full)+'</b><br>Uso personal: '+fmt(b.p)+'<br>Macro: '+fmt(b.m)+'<br>Total: '+fmt(b.p+b.m);
+      const tipH='<b>'+esc(b.full)+'</b><br>Uso personal: '+fmt(b.p)+'<br>Macro: '+fmt(b.m)+'<br>Sueldo: '+fmt(b.s)+'<br>Total: '+fmt(tot(b));
       hit.addEventListener('mousemove',e=>showTip(e,tipH)); hit.addEventListener('mouseleave',hideTip);
       svg.appendChild(hit);
     });
@@ -510,6 +549,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
   $('fPersonal').addEventListener('submit',add);
   $('fMacro').addEventListener('submit',add);
+  $('fSueldo').addEventListener('submit',add);
   $('prev').addEventListener('click',()=>{cur=addDays(cur,-7);render();});
   $('next').addEventListener('click',()=>{cur=addDays(cur,7);render();});
   $('today').addEventListener('click',()=>{cur=weekStart(new Date());render();});
@@ -599,7 +639,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     db = localDb;
     db.collection('movimientos').onSnapshot(s=>{ movs=s.docs.map(d=>Object.assign({id:d.id},d.data())); render(); },
       ()=>{});
-    db.doc('config/conceptos').onSnapshot(s=>{ const d=s.exists?s.data():{}; extra={personal:d.personal||[],macro:d.macro||[]}; fillSelect('personal'); fillSelect('macro'); },
+    db.doc('config/conceptos').onSnapshot(s=>{ const d=s.exists?s.data():{}; extra={personal:d.personal||[],macro:d.macro||[],sueldo:d.sueldo||[]}; fillSelect('personal'); fillSelect('macro'); fillSelect('sueldo'); },
       ()=>{});
     sync();
   })();
