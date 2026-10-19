@@ -226,7 +226,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
         </div>
       </form>
       <div class="tablewrap"><table>
-        <thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Monto</th><th class="n">Total</th><th></th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Monto</th><th class="n">Total</th><th>Cobrado</th><th></th></tr></thead>
         <tbody id="sRows"></tbody>
       </table></div>
     </section>
@@ -296,16 +296,16 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
   function renderTable(tbody, rows, start, cuenta){
     tbody.textContent='';
-    const macro = cuenta==='macro';
+    const macro = cuenta==='macro', chk = macro || cuenta==='sueldo';
     if(!rows.length){
       const tr=document.createElement('tr'), td=document.createElement('td');
-      td.colSpan=macro?6:5; td.className='empty';
+      td.colSpan=chk?6:5; td.className='empty';
       td.textContent = db ? 'Todavía no hay gastos esta semana. Cargá el primero arriba.' : 'Los gastos que cargues van a aparecer acá.';
       tr.appendChild(td); tbody.appendChild(tr); return;
     }
     let bal=start;
     for(const m of rows){
-      const paid = macro && !!m.cobrado;
+      const paid = chk && !!m.cobrado;
       if(!paid) bal -= m.monto;
       const tr=document.createElement('tr'); if(paid) tr.className='paid';
       const d=document.createElement('td'); d.className='d'; d.textContent=short(parse(m.fecha));
@@ -314,7 +314,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
       const a=document.createElement('td'); a.className='n amt'; a.textContent='-'+fmt(m.monto);
       const b=document.createElement('td'); if(cuenta==='sueldo'){ b.className='n'; b.textContent=fmt(-bal); } else { b.className='n '+(bal<0?'neg':'pos'); b.textContent=fmt(bal); }
       const cells=[d,c,a,b];
-      if(macro){
+      if(chk){
         const k=document.createElement('td'); k.className='chk';
         const lab=document.createElement('label'); const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=paid; cb.disabled=!db;
         cb.setAttribute('aria-label','Cobrado: '+m.concepto+' '+fmt(m.monto));
@@ -360,7 +360,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     renderTable($('mRows'),m,0,'macro');
 
     // Sueldo: spent from Macro, not charged to papá
-    const sr=rowsFor('sueldo',ws,we), sg=sr.reduce((t,x)=>t+x.monto,0);
+    const sr=rowsFor('sueldo',ws,we), sg=sr.filter(x=>!x.cobrado).reduce((t,x)=>t+x.monto,0);
     $('sSaldo').textContent=fmt(sg);
     renderTable($('sRows'),sr,0,'sueldo');
 
@@ -462,7 +462,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
   function renderStats(){
     const {from,to,label}=periodRange(), fI=iso(from), tI=iso(to), today=new Date(), tdI=iso(today);
-    const rows=movs.filter(m=>m.fecha>=fI && m.fecha<=tI);
+    const rows=movs.filter(m=>m.fecha>=fI && m.fecha<=tI && !(m.cuenta==='sueldo' && m.cobrado));
     const enCurso = tdI>=fI && tdI<=tI;
     $('sPeriod').textContent = label + (enCurso ? ' (en curso)' : (tdI<fI ? ' (todavía no empezó)' : ' (cerrado)'));
     const pers=rows.filter(m=>m.cuenta==='personal'), mac=rows.filter(m=>m.cuenta==='macro'), sue=rows.filter(m=>m.cuenta==='sueldo');
