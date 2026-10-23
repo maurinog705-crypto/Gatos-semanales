@@ -147,7 +147,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
         <div class="eyebrow">Te queda</div>
         <div class="big" id="pSaldo">$100.000</div>
         <div class="meter" id="pMeter"><i style="width:0%"></i></div>
-        <p class="hint" id="pResumen">Gastaste $0 de $100.000</p>
+        <p class="hint" id="pResumen"></p>
       </div>
       <form class="add" id="fPersonal" data-cuenta="personal">
         <input type="date" id="pFecha" aria-label="Fecha" required>
@@ -261,7 +261,8 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
 <script>
 (function(){
-  const PAPA = 100000;
+  // Weekly money from papá: 100.000, raised to 130.000 from the week of Wed 21/10/2026
+  const papa = ws => ws>='2026-10-21' ? 130000 : 100000;
   const $ = id => document.getElementById(id);
   const fmt = n => { const a=Math.abs(Math.round(n*100)/100), d=Number.isInteger(a)?0:2; return (n<0?'-':'') + '$' + a.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}); };
   // Accepts Argentine style: "1.234,50", "1234,5", "1234.50" or "1234"
@@ -343,13 +344,13 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     for(const id of ['pFecha','mFecha','sFecha']){ const el=$(id); el.min=ws; el.max=we; if(!el.value||el.value<ws||el.value>we) el.value=defaultDate(); }
 
     // Personal
-    const p=rowsFor('personal',ws,we), pg=p.reduce((s,m)=>s+m.monto,0), pq=PAPA-pg;
+    const p=rowsFor('personal',ws,we), pg=p.reduce((s,m)=>s+m.monto,0), PAPA=papa(ws), pq=PAPA-pg;
     $('pSaldo').textContent=fmt(pq); $('pSaldo').className='big '+(pq<0?'neg':'pos');
     const meter=$('pMeter'); meter.classList.toggle('over',pq<0);
     meter.firstElementChild.style.width=Math.min(100,pg/PAPA*100)+'%';
     $('pResumen').textContent = pq<0
-      ? 'Gastaste '+fmt(pg)+': te pasaste '+fmt(-pq)+' de los $100.000.'
-      : 'Gastaste '+fmt(pg)+' de $100.000.';
+      ? 'Gastaste '+fmt(pg)+': te pasaste '+fmt(-pq)+' de los '+fmt(PAPA)+'.'
+      : 'Gastaste '+fmt(pg)+' de '+fmt(PAPA)+'.';
     renderTable($('pRows'),p,PAPA,'personal');
 
     // Macro: the balance only counts what papá still owes
@@ -459,6 +460,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     const f=new Date(cur.getFullYear(),0,1), t=new Date(cur.getFullYear(),11,31); return {from:f,to:t,label:'Año '+f.getFullYear()};
   }
   function wednesdays(from,to){ let n=0; const d=new Date(from); while(d<=to){ if(d.getDay()===3) n++; d.setDate(d.getDate()+1);} return n; }
+  function received(from,to){ let t=0; const d=new Date(from); while(d<=to){ if(d.getDay()===3) t+=papa(iso(d)); d.setDate(d.getDate()+1);} return t; }
 
   function renderStats(){
     const {from,to,label}=periodRange(), fI=iso(from), tI=iso(to), today=new Date(), tdI=iso(today);
@@ -473,12 +475,12 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     const start = scope==='semana' ? from : (first && weekStart(parse(first))>from ? weekStart(parse(first)) : from);
     const lastDay = enCurso ? new Date(today.getFullYear(),today.getMonth(),today.getDate()) : to;
     const days = (tdI<fI || !rows.length) ? 0 : Math.max(1,Math.round((lastDay-start)/864e5)+1);
-    const recibido = scope==='semana' ? PAPA : PAPA*wednesdays(start, lastDay);
+    const PAPA = papa(fI), recibido = scope==='semana' ? PAPA : received(start, lastDay);
     const big = rows.reduce((b,m)=>!b||m.monto>b.monto?m:b,null);
     const byCat={}; for(const m of rows){ const k=m.cuenta+'|'+m.concepto; byCat[k]=(byCat[k]||0)+m.monto; }
     const cats=Object.entries(byCat).map(([k,v])=>{const [c,n]=k.split('|');return {c,n,v};}).sort((a,b)=>b.v-a.v);
     const tiles=[
-      ['Uso personal', fmt(P), scope==='semana' ? (P<=PAPA?'Te sobran '+fmt(PAPA-P):'Te pasaste '+fmt(P-PAPA)) : 'De '+fmt(recibido)+' recibidos ('+(recibido/PAPA)+' miércoles'+(scope==='anio'&&start>from?' desde que empezaste':'')+')'],
+      ['Uso personal', fmt(P), scope==='semana' ? (P<=PAPA?'Te sobran '+fmt(PAPA-P):'Te pasaste '+fmt(P-PAPA)) : 'De '+fmt(recibido)+' recibidos ('+wednesdays(start, lastDay)+' miércoles'+(scope==='anio'&&start>from?' desde que empezaste':'')+')'],
       ['Macro (para papá)', fmt(M), M ? 'Falta cobrar '+fmt(sum(mac.filter(m=>!m.cobrado))) : 'sin gastos'],
       ['Sueldo', fmt(S), sue.length+' gasto'+(sue.length===1?'':'s')],
       ['Total gastado', fmt(T), rows.length+' gasto'+(rows.length===1?'':'s')],
