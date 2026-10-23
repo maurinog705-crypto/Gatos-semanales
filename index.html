@@ -135,6 +135,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     <span class="label" id="weekLabel">…</span>
     <button class="btn" id="next" aria-label="Semana siguiente">→</button>
     <button class="btn" id="today">Esta semana</button>
+    <button class="btn" id="reload" title="Actualizar" aria-label="Actualizar">↻</button>
     <span class="status" id="status">Cargando…</span>
   </div>
 
@@ -555,6 +556,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
   $('prev').addEventListener('click',()=>{cur=addDays(cur,-7);render();});
   $('next').addEventListener('click',()=>{cur=addDays(cur,7);render();});
   $('today').addEventListener('click',()=>{cur=weekStart(new Date());render();});
+  $('reload').addEventListener('click',()=>location.reload());
 
 
   render();
