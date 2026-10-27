@@ -636,7 +636,16 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     ['seed-2610-2',{cuenta:'sueldo',fecha:'2026-10-19',concepto:'Comida',lugar:'PedidosYa (resto)',monto:1040.63},[1040.63,22254]],
     ['seed-2610-3',{cuenta:'personal',fecha:'2026-10-19',concepto:'Comida',lugar:'PedidosYa',monto:21213.37},[21213.37,22254]],
     ['seed-2610-4',{cuenta:'macro',fecha:'2026-10-19',concepto:'Nafta',lugar:'Valparaíso',monto:30000,cobrado:false},[30000]],
-    ['seed-2610-5',{cuenta:'personal',fecha:'2026-10-19',concepto:'Nafta',lugar:'Valparaíso',monto:30000},[30000]]
+    ['seed-2610-5',{cuenta:'personal',fecha:'2026-10-19',concepto:'Nafta',lugar:'Valparaíso',monto:30000},[30000]],
+    ['seed-2710-1',{cuenta:'macro',fecha:'2026-10-22',concepto:'Súper',lugar:'Hipercity',monto:33024,cobrado:true},[33024]],
+    ['seed-2710-2',{cuenta:'macro',fecha:'2026-10-23',concepto:'Otros necesarios',lugar:'Bersur',monto:12000,cobrado:true},[12000]],
+    ['seed-2710-3',{cuenta:'macro',fecha:'2026-10-27',concepto:'Súper',lugar:'Hipercity',monto:38373,cobrado:false},[38373]]
+  ];
+  // One-off fixes to existing entries: [marker id, entry id, only if its monto is still this, new fields]
+  const PATCHES=[
+    ['patch-2710-1','mvia9rokcciag',52036,{monto:57035.32}],
+    ['patch-2710-2','mvldiaadoyq39',49000,{monto:99000,cobrado:true}],
+    ['patch-2710-3','mvfn96t1upik6',30000,{cobrado:true}]
   ];
   function applySeeds(){
     const M=DATA.movimientos=DATA.movimientos||{}; let added=false;
@@ -644,6 +653,11 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
       if(M[id]) continue;
       const dup=Object.values(M).some(x=>!x._del&&x.cuenta===d.cuenta&&x.fecha===d.fecha&&amts.some(a=>Math.abs(x.monto-a)<1));
       M[id]=dup?{_del:true,_t:now()}:Object.assign({},d,{creado:now(),_t:now()}); added=true;
+    }
+    for(const [mark,id,was,d] of PATCHES){
+      if(M[mark]) continue;
+      const x=M[id]; if(x&&!x._del&&Math.abs(x.monto-was)<1) Object.assign(x,d,{_t:now()});
+      M[mark]={_del:true,_t:now()}; added=true;
     }
     if(added) persist();
   }
