@@ -656,13 +656,23 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     ['seed-0311-14',{cuenta:'personal',fecha:'2026-10-30',concepto:'COSAS',lugar:'Evangelina',monto:1100},[1100]],
     ['seed-0311-15',{cuenta:'personal',fecha:'2026-10-30',concepto:'COSAS',lugar:'Peluquería',monto:14000},[14000]],
     ['seed-0311-16',{cuenta:'personal',fecha:'2026-10-28',concepto:'Nafta',lugar:'Ualá',monto:30000},[30000]],
-    ['seed-0311-17',{cuenta:'sueldo',fecha:'2026-11-02',concepto:'Prestamo',lugar:'Remera novia',monto:28500,cobrado:false},[28500]]
+    ['seed-0311-17',{cuenta:'sueldo',fecha:'2026-11-02',concepto:'Prestamo',lugar:'Remera novia',monto:28500,cobrado:false},[28500]],
+    ['seed-0511-1',{cuenta:'macro',fecha:'2026-11-03',concepto:'Psicóloga',lugar:'Silvina',monto:38000,cobrado:false},[38000]],
+    ['seed-0511-2',{cuenta:'macro',fecha:'2026-11-03',concepto:'Súper',lugar:'Carrefour',monto:4207.2,cobrado:false},[4207.2]],
+    ['seed-0511-3',{cuenta:'macro',fecha:'2026-11-04',concepto:'Súper',lugar:'Almacor + dietética',monto:33017,cobrado:false},[33017]]
   ];
   // One-off fixes to existing entries: [marker id, entry id, only if its monto is still this, new fields]
   const PATCHES=[
     ['patch-2710-1','mvia9rokcciag',52036,{monto:57035.32}],
     ['patch-2710-2','mvldiaadoyq39',49000,{monto:99000,cobrado:true}],
-    ['patch-2710-3','mvfn96t1upik6',30000,{cobrado:true}]
+    ['patch-2710-3','mvfn96t1upik6',30000,{cobrado:true}],
+    // Papá paid the week 28/10–3/11 on 3/11; girlfriend paid back the T-shirt on 5/11
+    ['patch-0511-1','seed-0311-1',16667,{cobrado:true}],
+    ['patch-0511-2','seed-0311-2',12000,{cobrado:true}],
+    ['patch-0511-3','seed-0311-3',46064.92,{cobrado:true}],
+    ['patch-0511-4','seed-0311-4',14706.4,{cobrado:true}],
+    ['patch-0511-5','seed-0311-5',6000,{cobrado:true}],
+    ['patch-0511-6','seed-0311-17',28500,{cobrado:true}]
   ];
   function applySeeds(){
     const M=DATA.movimientos=DATA.movimientos||{}; let added=false;
