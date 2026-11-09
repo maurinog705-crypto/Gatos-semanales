@@ -665,7 +665,8 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     ['seed-0511-6',{cuenta:'macro',fecha:'2026-11-02',concepto:'Entradas Brasil',lugar:'Aura x Mata 12/1',monto:114734.06,cobrado:false},[114734.06]],
     ['seed-0711-1',{cuenta:'sueldo',fecha:'2026-11-03',concepto:'Prestamo',lugar:'Ariel: nafta viaje',monto:16000,cobrado:false},[16000]],
     ['seed-0711-2',{cuenta:'sueldo',fecha:'2026-11-06',concepto:'Prestamo',lugar:'Ariel: lavado',monto:25000,cobrado:false},[25000]],
-    ['seed-0911-1',{cuenta:'sueldo',fecha:'2026-11-11',concepto:'Salidas',lugar:'Bar con novia (lo cubren Ariel + MP)',monto:49500,cobrado:false},[49500]]
+    ['seed-0911-1',{cuenta:'sueldo',fecha:'2026-11-11',concepto:'Salidas',lugar:'Bar con novia (lo cubren Ariel + MP)',monto:49500,cobrado:false},[49500]],
+    ['seed-0911-2',{cuenta:'macro',fecha:'2026-11-06',concepto:'Súper',lugar:'Carnicería',monto:137500,cobrado:false},[137500]]
   ];
   // One-off fixes to existing entries: [marker id, entry id, only if its monto is still this, new fields]
   const PATCHES=[
@@ -680,7 +681,9 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     ['patch-0511-5','seed-0311-5',6000,{cobrado:true}],
     ['patch-0511-6','seed-0311-17',28500,{cobrado:true}],
     // Papá paid the psychologist on 5/11
-    ['patch-0611-1','seed-0511-1',38000,{cobrado:true}]
+    ['patch-0611-1','seed-0511-1',38000,{cobrado:true}],
+    // Papá paid Hipercity 27/10 (38.400 into MP on 27/10)
+    ['patch-0911-1','seed-2710-3',38373,{cobrado:true}]
   ];
   function applySeeds(){
     const M=DATA.movimientos=DATA.movimientos||{}; let added=false;
