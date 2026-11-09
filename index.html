@@ -165,7 +165,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
         </div>
       </form>
       <div class="tablewrap"><table>
-        <thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Monto</th><th class="n">Queda</th><th></th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th class="n">Monto</th><th class="n">Queda</th><th>Devuelto</th><th></th></tr></thead>
         <tbody id="pRows"></tbody>
       </table></div>
     </section>
@@ -298,7 +298,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
   function renderTable(tbody, rows, start, cuenta){
     tbody.textContent='';
-    const macro = cuenta==='macro', chk = macro || cuenta==='sueldo';
+    const macro = cuenta==='macro', chk = true;
     if(!rows.length){
       const tr=document.createElement('tr'), td=document.createElement('td');
       td.colSpan=chk?6:5; td.className='empty';
@@ -319,8 +319,8 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
       if(chk){
         const k=document.createElement('td'); k.className='chk';
         const lab=document.createElement('label'); const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=paid; cb.disabled=!db;
-        cb.setAttribute('aria-label','Cobrado: '+m.concepto+' '+fmt(m.monto));
-        cb.addEventListener('change',()=>setCobrado([m],cb.checked));
+        cb.setAttribute('aria-label',(cuenta==='personal'?'Devuelto: ':'Cobrado: ')+m.concepto+' '+fmt(m.monto));
+        cb.addEventListener('change',()=>setCobrado([m],cb.checked,cuenta==='personal'));
         lab.append(cb); k.appendChild(lab); cells.push(k);
       }
       const x=document.createElement('td'); const del=document.createElement('button');
@@ -331,11 +331,11 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     }
   }
 
-  async function setCobrado(list, val){
+  async function setCobrado(list, val, dev){
     if(!db) return;
     try{
       for(const m of list){ if(!!m.cobrado!==val) await db.collection('movimientos').doc(m.id).update({cobrado:val}); }
-      setStatus(val?'Marcado como cobrado':'Marcado como pendiente');
+      setStatus(val?(dev?'Marcado como devuelto':'Marcado como cobrado'):'Marcado como pendiente');
     }catch(err){ setStatus('No se pudo guardar. Probá de nuevo.',true); }
   }
 
@@ -345,7 +345,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     for(const id of ['pFecha','mFecha','sFecha']){ const el=$(id); el.min=ws; el.max=we; if(!el.value||el.value<ws||el.value>we) el.value=defaultDate(); }
 
     // Personal
-    const p=rowsFor('personal',ws,we), pg=p.reduce((s,m)=>s+m.monto,0), PAPA=papa(ws), pq=PAPA-pg;
+    const p=rowsFor('personal',ws,we), pg=p.filter(m=>!m.cobrado).reduce((s,m)=>s+m.monto,0), PAPA=papa(ws), pq=PAPA-pg;
     $('pSaldo').textContent=fmt(pq); $('pSaldo').className='big '+(pq<0?'neg':'pos');
     const meter=$('pMeter'); meter.classList.toggle('over',pq<0);
     meter.firstElementChild.style.width=Math.min(100,pg/PAPA*100)+'%';
@@ -465,7 +465,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
   function renderStats(){
     const {from,to,label}=periodRange(), fI=iso(from), tI=iso(to), today=new Date(), tdI=iso(today);
-    const rows=movs.filter(m=>m.fecha>=fI && m.fecha<=tI && !(m.cuenta==='sueldo' && m.cobrado));
+    const rows=movs.filter(m=>m.fecha>=fI && m.fecha<=tI && !(m.cuenta!=='macro' && m.cobrado));
     const enCurso = tdI>=fI && tdI<=tI;
     $('sPeriod').textContent = label + (enCurso ? ' (en curso)' : (tdI<fI ? ' (todavía no empezó)' : ' (cerrado)'));
     const pers=rows.filter(m=>m.cuenta==='personal'), mac=rows.filter(m=>m.cuenta==='macro'), sue=rows.filter(m=>m.cuenta==='sueldo');
