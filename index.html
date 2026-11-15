@@ -77,6 +77,7 @@ td .cat{display:block;color:var(--muted);font-size:.78rem}
 .settle.done{background:var(--accent-soft)}
 .settle p{margin:0}
 .carry{font-size:.85rem;color:var(--warn)}
+tr.old td.d{color:var(--warn)}
 .backup{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
 .backup label{display:inline-block}
 .syncp{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:10px;max-width:560px}
@@ -175,7 +176,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
         <h2 id="h-macro">Cuenta Macro <span class="pill debt">a cobrarle a papá</span></h2>
       </div>
       <div>
-        <div class="eyebrow">Falta cobrar esta semana</div>
+        <div class="eyebrow">Te debe papá</div>
         <div class="big neg" id="mSaldo">$0</div>
         <p class="hint" id="mResumen"></p>
         <p class="carry" id="mCarry" hidden></p>
@@ -309,7 +310,7 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     for(const m of rows){
       const paid = chk && !!m.cobrado;
       if(!paid) bal -= m.monto;
-      const tr=document.createElement('tr'); if(paid) tr.className='paid';
+      const tr=document.createElement('tr'); if(paid) tr.className='paid'; else if(m._old) tr.className='old';
       const d=document.createElement('td'); d.className='d'; d.textContent=short(parse(m.fecha));
       const c=document.createElement('td'); c.textContent=m.concepto;
       if(m.lugar){ const cat=document.createElement("span"); cat.className="cat"; cat.textContent=m.lugar; c.appendChild(cat); }
@@ -354,32 +355,31 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
       : 'Gastaste '+fmt(pg)+' de '+fmt(PAPA)+'.';
     renderTable($('pRows'),p,PAPA,'personal');
 
-    // Macro: the balance only counts what papá still owes
+    // Macro: what papá owes, this week + unpaid from earlier weeks (kept until cobrado)
     const m=rowsFor('macro',ws,we), total=m.reduce((s,x)=>s+x.monto,0);
-    const pend=m.filter(x=>!x.cobrado), mg=pend.reduce((s,x)=>s+x.monto,0), cob=total-mg;
-    $('mSaldo').textContent=fmt(-mg); $('mSaldo').className='big '+(mg>0?'neg':'');
-    $('mResumen').textContent = total ? 'Gastaste '+fmt(total)+' · cobrado '+fmt(cob)+' · falta '+fmt(mg) : '';
-    renderTable($('mRows'),m,0,'macro');
-
+    const old=movs.filter(x=>x.cuenta==='macro' && !x.cobrado && x.fecha<ws)
+                  .sort((a,b)=> a.fecha===b.fecha ? (a.creado||0)-(b.creado||0) : a.fecha<b.fecha?-1:1)
+                  .map(x=>Object.assign(Object.create(x),{_old:true}));
+    const oldTot=old.reduce((s,x)=>s+x.monto,0);
+    const pend=m.filter(x=>!x.cobrado), mg=pend.reduce((s,x)=>s+x.monto,0), cob=total-mg, owe=mg+oldTot;
+    $('mSaldo').textContent=fmt(-owe); $('mSaldo').className='big '+(owe>0?'neg':'');
+    $('mResumen').textContent = total ? 'Esta semana: gastaste '+fmt(total)+' · cobrado '+fmt(cob)+' · falta '+fmt(mg) : '';
+    renderTable($('mRows'),old.concat(m),0,'macro');
     // Sueldo: spent from Macro, not charged to papá
     const sr=rowsFor('sueldo',ws,we), sg=sr.filter(x=>!x.cobrado).reduce((t,x)=>t+x.monto,0);
     $('sSaldo').textContent=fmt(sg);
     renderTable($('sRows'),sr,0,'sueldo');
 
     const nextWed = addDays(cur,7);
-    const st=$('settle'), btn=$('settleBtn');
-    st.classList.toggle('done', total>0 && mg===0);
-    if(!total){ $('settleText').textContent='Nada para cobrar esta semana.'; btn.hidden=true; }
-    else if(mg===0){ $('settleText').textContent='Ya le cobraste todo a papá ('+fmt(total)+').'; btn.hidden=false; btn.textContent='Desmarcar todo'; btn.onclick=()=>setCobrado(m,false); }
-    else { $('settleText').textContent='Falta cobrarle a papá '+fmt(mg)+(cob?' (ya cobraste '+fmt(cob)+')':'')+'. Se lo cobrás el miércoles '+short(nextWed)+'.'; btn.hidden=false; btn.textContent='Marcar todo como cobrado'; btn.onclick=()=>setCobrado(pend,true); }
+    const st=$('settle'), btn=$('settleBtn'), allPend=old.map(x=>Object.getPrototypeOf(x)).concat(pend);
+    st.classList.toggle('done', total>0 && owe===0);
+    if(!total && !owe){ $('settleText').textContent='Nada para cobrar.'; btn.hidden=true; }
+    else if(owe===0){ $('settleText').textContent='Ya le cobraste todo a papá ('+fmt(total)+').'; btn.hidden=false; btn.textContent='Desmarcar todo'; btn.onclick=()=>setCobrado(m,false); }
+    else { $('settleText').textContent='Falta cobrarle a papá '+fmt(owe)+'. Se lo cobrás el miércoles '+short(nextWed)+'.'; btn.hidden=false; btn.textContent='Marcar todo como cobrado'; btn.onclick=()=>setCobrado(allPend,true); }
     btn.disabled=!db;
 
-    // Unpaid Macro from earlier weeks
-    const owed={};
-    for(const x of movs){ if(x.cuenta!=='macro' || x.cobrado) continue; const w=iso(weekStart(parse(x.fecha))); if(w<ws) owed[w]=(owed[w]||0)+x.monto; }
-    const weeks=Object.keys(owed), tot=weeks.reduce((s,w)=>s+owed[w],0);
-    const carry=$('mCarry');
-    if(tot>0){ carry.hidden=false; carry.textContent='Además quedan '+fmt(tot)+' sin cobrar de '+(weeks.length===1?'la semana del '+short(parse(weeks[0])):weeks.length+' semanas anteriores')+'.'; }
+    const carry=$('mCarry'), nw=new Set(old.map(x=>iso(weekStart(parse(x.fecha))))).size;
+    if(oldTot>0){ carry.hidden=false; carry.textContent='Incluye '+fmt(oldTot)+' de '+(nw===1?'1 semana anterior':nw+' semanas anteriores')+' (en naranja).'; }
     else carry.hidden=true;
     if(typeof renderStats==='function') renderStats();
   }
