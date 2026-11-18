@@ -692,7 +692,10 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     ['patch-0911-2','seed-0511-2',4207.2,{cobrado:true}],
     ['patch-0911-3','seed-0511-3',33017,{cobrado:true}],
     // Girlfriend paid 17.000 of the bar (9/11)
-    ['patch-0911-4','seed-0911-1',49500,{monto:32500,lugar:'Bar con novia (mi parte; ella puso 17.000)'}]
+    ['patch-0911-4','seed-0911-1',49500,{monto:32500,lugar:'Bar con novia (mi parte; ella puso 17.000)'}],
+    // Already paid by papá: wifi 21/10 and súper 10/11 (paid 15/11). Matched by [cuenta, fecha] since they were entered by hand.
+    ['patch-1811-1',['macro','2026-10-21'],32852,{cobrado:true}],
+    ['patch-1811-2',['macro','2026-11-10'],62269,{cobrado:true}]
   ];
   function applySeeds(){
     const M=DATA.movimientos=DATA.movimientos||{}; let added=false;
@@ -703,7 +706,8 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     }
     for(const [mark,id,was,d] of PATCHES){
       if(M[mark]) continue;
-      const x=M[id]; if(x&&!x._del&&Math.abs(x.monto-was)<1) Object.assign(x,d,{_t:now()});
+      const x=Array.isArray(id)?Object.values(M).find(y=>y&&!y._del&&y.cuenta===id[0]&&y.fecha===id[1]&&Math.abs(y.monto-was)<1):M[id];
+      if(x&&!x._del&&Math.abs(x.monto-was)<1) Object.assign(x,d,{_t:now()});
       M[mark]={_del:true,_t:now()}; added=true;
     }
     if(added) persist();
