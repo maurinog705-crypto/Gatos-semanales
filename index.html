@@ -695,7 +695,11 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     ['patch-0911-4','seed-0911-1',49500,{monto:32500,lugar:'Bar con novia (mi parte; ella puso 17.000)'}],
     // Already paid by papá: wifi 21/10 and súper 10/11 (paid 15/11). Matched by [cuenta, fecha] since they were entered by hand.
     ['patch-1811-1',['macro','2026-10-21'],32852,{cobrado:true}],
-    ['patch-1811-2',['macro','2026-11-10'],62269,{cobrado:true}]
+    ['patch-1811-2',['macro','2026-11-10'],62269,{cobrado:true}],
+    // Papá paid the Brasil tickets (kept in MP reserve Entradas BR)
+    ['patch-1811-3','seed-0511-4',98796.5,{cobrado:true}],
+    ['patch-1811-4','seed-0511-5',116983.75,{cobrado:true}],
+    ['patch-1811-5','seed-0511-6',114734.06,{cobrado:true}]
   ];
   function applySeeds(){
     const M=DATA.movimientos=DATA.movimientos||{}; let added=false;
