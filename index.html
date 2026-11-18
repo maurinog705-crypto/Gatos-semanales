@@ -716,7 +716,12 @@ td.chk input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
     }
     if(added) persist();
   }
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') sync(); });
+  // Cuando arranca una semana nueva (miércoles), pasar solo a esa semana si la app quedó abierta
+  let home = iso(weekStart(new Date()));
+  function rollWeek(){ const h=iso(weekStart(new Date())); if(h!==home){ if(iso(cur)===home){ cur=parse(h); render(); } home=h; } }
+  setInterval(rollWeek,60000);
+  window.addEventListener('focus',rollWeek);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ rollWeek(); sync(); } });
   setInterval(()=>{ if(document.visibilityState==='visible') sync(); },30000);
   window.addEventListener('online',sync);
   (async()=>{
